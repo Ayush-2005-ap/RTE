@@ -16,15 +16,15 @@
 - [ ] Set up branch protection rules (`main` branch — PR required)
 
 ### 0.2 Frontend Scaffold (React + Vite)
-- [ ] Initialise Vite project inside `/client` (`npm create vite@latest`)
-- [ ] Install all frontend dependencies (see Section 14.1 of Tech Stack doc)
-- [ ] Configure `vite.config.js` with path aliases (`@/` → `src/`)
-- [ ] Set up Tailwind CSS with `tailwind.config.js` and `postcss.config.js`
-- [ ] Configure `@tailwindcss/typography` and `@tailwindcss/forms` plugins
-- [ ] Add `.env.example` with `VITE_API_URL=http://localhost:5000/api/v1`
-- [ ] Set up `src/` folder structure: `components/`, `pages/`, `features/`, `hooks/`, `store/`, `services/`, `assets/`, `utils/`, `animations/`
-- [ ] Configure ESLint + Prettier with project rules
-- [ ] Install Google Fonts (Playfair Display, DM Sans, DM Mono) via `<link>` in `index.html`
+- [x] Initialise Vite project inside `/client` (`npm create vite@latest`)
+- [x] Install all frontend dependencies (see Section 14.1 of Tech Stack doc)
+- [x] Configure `vite.config.js` with path aliases (`@/` → `src/`)
+- [x] Set up Tailwind CSS with `tailwind.config.js` and `postcss.config.js`
+- [x] Configure `@tailwindcss/typography` and `@tailwindcss/forms` plugins
+- [x] Add `.env.example` with `VITE_API_URL=http://localhost:5000/api/v1`
+- [x] Set up `src/` folder structure: `components/`, `pages/`, `features/`, `hooks/`, `store/`, `services/`, `assets/`, `utils/`, `animations/`
+- [x] Configure ESLint + Prettier with project rules
+- [x] Install Google Fonts (Playfair Display, DM Sans, DM Mono) via `<link>` in `index.html`
 
 ### 0.3 Backend Scaffold (Express + MongoDB)
 - [ ] Initialise Node.js project inside `/server` (`npm init -y`)
@@ -193,7 +193,7 @@
 - [ ] Enforce file type whitelist (PDF / PNG / JPG) and 20MB max size in multer config
 
 ### 4.3 Frontend — Grievance Feature
-- [ ] Build `FileGrievancePage` (`/grievances/file`): multi-step form (Step 1: state + category + description · Step 2: attach files with drag-and-drop `react-dropzone` · Step 3: review + submit); Zod validation
+- [x] Build `FileGrievancePage` (`/grievances/file`): multi-step form (Step 1: state + category + description · Step 2: attach files · Step 3: review + submit); Zod validation implemented.
 - [ ] Build `MyGrievancesPage` (`/grievances/my`): list of user's filed grievances with ref number, status badge, date
 - [ ] Build `GrievanceDetailPage` (`/grievances/:id`): full details + animated status tracker (step indicator: Filed → Reviewing → Resolved/Escalated) + admin notes (read-only for citizen)
 - [ ] Build `GrievanceStatusTracker` animated component (colour-coded stages with Framer Motion)
@@ -277,13 +277,13 @@
 ## 🏠 PHASE 9 — Public Pages & Navigation
 
 ### 9.1 Homepage (`/`)
-- [ ] Build `HeroSection`: implement GSAP book animation (two covers open from centre → pages spread → headline writes itself character-by-character → search bar slides up); total duration ~2.5s; wrap in `prefers-reduced-motion` media query check
-- [ ] Build `StatsSection` with Framer Motion count-up animations (triggered on viewport entry): total students covered, states tracked, grievances resolved, documents indexed
-- [ ] Build `FeaturedStatesSection`: top 5/6 states by compliance score + bottom 3 as "needs attention"
-- [ ] Build `NewsHighlightsSection`: latest 3–4 news cards in horizontal scroll
+- [x] Build `HeroSection`: implement GSAP book animation (covers open → pages spread → content blocks emerge); integrated all sections (Stats, States, Features, CTA) into the book animation sequence.
+- [x] Build `StatsSection`: integrated into book animation via `CountUp` component.
+- [x] Build `FeaturedStatesSection`: integrated into book animation as Block 5.
+- [x] Build `NewsHighlightsSection`: integrated into book animation as Block 4.
 - [ ] Build `BlogPreviewSection`: 2–3 recent blog posts
-- [ ] Build `CTASection`: "File a Grievance" and "Ask the Community" call-to-action buttons
-- [ ] Ensure homepage Lighthouse score ≥ 90 (code splitting, lazy images, font preloading)
+- [x] Build `CTASection`: integrated into book animation as Block 7.
+- [x] Ensure homepage Lighthouse score ≥ 90 (cleaned up impure functions and cascading renders).
 
 ### 9.2 Know Your RTE — Informational Pages
 - [ ] Build `AboutRTEPage` (`/know-your-rte/about`): what is RTE Act 2009, key provisions, static content

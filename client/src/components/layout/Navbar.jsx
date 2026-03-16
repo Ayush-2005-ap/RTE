@@ -61,7 +61,7 @@ export default function Navbar() {
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
           scrolled ? 'bg-navy-DEFAULT/95 backdrop-blur-md shadow-md' : 'bg-transparent'
         }`}
-        style={{ backgroundColor: scrolled ? 'rgba(26,39,68,0.96)' : 'transparent' }}
+        style={{ backgroundColor: scrolled ? 'rgba(26,39,68,0.96)' : 'rgba(26,39,68,0.96)' }}
       >
         <nav className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between h-16 md:h-18">
           {/* Logo */}
@@ -151,12 +151,12 @@ export default function Navbar() {
               </div>
             ) : (
               <div className="hidden md:flex items-center gap-2">
-                <Link to="/login" className="btn-ghost text-gray-400 hover:text-white text-sm px-3 py-1.5">
+                <Link to="/login" className="btn-primary text-gray-400 hover:text-white text-sm px-3 py-1.5">
                   Login
                 </Link>
-                <Link to="/register" className="btn-primary text-sm px-4 py-2" style={{ fontSize: '13px' }}>
+                {/* <Link to="/register" className="btn-primary text-sm px-4 py-2" style={{ fontSize: '13px' }}>
                   Register
-                </Link>
+                </Link> */}
               </div>
             )}
 
