@@ -54,7 +54,9 @@ app.get('/api/v1/health', (req, res) => {
 });
 
 // 2) ROUTES
-// (Import and mount real routes here)
+const authRoutes = require('./routes/authRoutes');
+
+app.use('/api/v1/auth', authRoutes);
 
 // handle undefined routes
 app.all('*', (req, res, next) => {
