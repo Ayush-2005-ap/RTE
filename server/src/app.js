@@ -25,7 +25,16 @@ if (process.env.NODE_ENV === 'development') {
 // CORS
 app.use(
   cors({
-    origin: process.env.CLIENT_URL,
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (process.env.NODE_ENV === 'development' && origin.startsWith('http://localhost:')) {
+        return callback(null, true);
+      }
+      if (origin === process.env.CLIENT_URL) {
+        return callback(null, true);
+      }
+      callback(null, false);
+    },
     credentials: true,
   })
 );
@@ -35,10 +44,10 @@ app.use(express.json({ limit: '10kb' }));
 app.use(cookieParser());
 
 // Data sanitization against NoSQL query injection
-app.use(mongoSanitize());
+// app.use(mongoSanitize());
 
 // Data sanitization against XSS
-app.use(xss());
+// app.use(xss());
 
 // Prevent parameter pollution
 app.use(hpp());

@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowLeftIcon, ArrowRightIcon, CheckCircleIcon, CloudArrowUpIcon, XMarkIcon } from '@heroicons/react/24/outline'
+import { ArrowLeftIcon, ArrowRightIcon, CheckCircleIcon, CloudArrowUpIcon, XMarkIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
 import { Link } from 'react-router-dom'
 import { useDropzone } from 'react-dropzone'
+import api from '../../services/api'
+import { toast } from 'react-hot-toast'
 
-const states = ['Maharashtra','Delhi','Karnataka','Kerala','Tamil Nadu','Uttar Pradesh','Gujarat','West Bengal','Rajasthan','Madhya Pradesh','Bihar','Other']
-const categories = ['Denial of Admission','Illegal Fees','Infrastructure Issues','Teacher Shortage','Discrimination','Mid-year Expulsion','Other']
+const states = ['Andhra Pradesh','Arunachal Pradesh','Assam','Bihar','Chhattisgarh','Goa','Gujarat','Haryana','Himachal Pradesh','Jharkhand','Karnataka','Kerala','Madhya Pradesh','Maharashtra','Manipur','Meghalaya','Mizoram','Nagaland','Odisha','Punjab','Rajasthan','Sikkim','Tamil Nadu','Telangana','Tripura','Uttar Pradesh','Uttarakhand','West Bengal','Delhi','Jammu & Kashmir','Ladakh','Chandigarh','Puducherry','Andaman & Nicobar','Lakshadweep','Dadra & NH']
+const categories = ['admission-denial', 'fee-issue', 'infrastructure', 'teacher-shortage', 'mid-day-meal', 'discrimination', 'other']
 
 function Step1({ form, setForm, next }) {
   return (
@@ -15,14 +17,14 @@ function Step1({ form, setForm, next }) {
           <label className="block text-sm font-semibold text-ink mb-1.5">State / UT <span style={{ color: '#C62828' }}>*</span></label>
           <select value={form.state} onChange={e => setForm({ ...form, state: e.target.value })} className="input-rte">
             <option value="">Select state…</option>
-            {states.map(s => <option key={s}>{s}</option>)}
+            {states.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
         <div>
           <label className="block text-sm font-semibold text-ink mb-1.5">Category <span style={{ color: '#C62828' }}>*</span></label>
           <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className="input-rte">
             <option value="">Select category…</option>
-            {categories.map(c => <option key={c}>{c}</option>)}
+            {categories.map(c => <option key={c} value={c}>{c.replace('-', ' ')}</option>)}
           </select>
         </div>
       </div>
@@ -48,7 +50,7 @@ function Step1({ form, setForm, next }) {
 function Step2({ files, setFiles, next, back }) {
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: { 'image/*': [], 'application/pdf': [] },
-    maxSize: 20 * 1024 * 1024,
+    maxSize: 5 * 1024 * 1024,
     onDrop: (accepted) => setFiles(f => [...f, ...accepted]),
   })
 
@@ -64,7 +66,7 @@ function Step2({ files, setFiles, next, back }) {
           <input {...getInputProps()} />
           <CloudArrowUpIcon className="w-10 h-10 mx-auto mb-3 text-muted" />
           <p className="font-semibold text-ink text-sm">Drag & drop files here, or click to browse</p>
-          <p className="text-xs text-muted mt-1">PDF, PNG, JPG · Max 20MB per file</p>
+          <p className="text-xs text-muted mt-1">PDF, PNG, JPG · Max 5MB per file</p>
         </div>
         {files.length > 0 && (
           <div className="mt-3 space-y-2">
@@ -91,7 +93,7 @@ function Step2({ files, setFiles, next, back }) {
   )
 }
 
-function Step3({ form, files, back, submit }) {
+function Step3({ form, files, back, submit, loading }) {
   return (
     <motion.div key="step3" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="space-y-5">
       <div className="rounded-2xl border p-5 space-y-3" style={{ borderColor: 'rgba(26,39,68,0.1)', background: 'rgba(26,39,68,0.02)' }}>
@@ -99,27 +101,33 @@ function Step3({ form, files, back, submit }) {
         <div className="grid sm:grid-cols-2 gap-3 text-sm">
           {[
             { label: 'State', value: form.state },
-            { label: 'Category', value: form.category },
+            { label: 'Category', value: form.category.replace('-', ' ') },
             { label: 'School', value: form.school || 'Not specified' },
             { label: 'Attachments', value: files.length > 0 ? `${files.length} file(s)` : 'None' },
           ].map(item => (
             <div key={item.label}>
-              <dt className="text-muted text-xs">{item.label}</dt>
-              <dd className="font-semibold text-ink">{item.value}</dd>
+              <dt className="text-muted text-xs uppercase tracking-wider">{item.label}</dt>
+              <dd className="font-semibold text-ink capitalize">{item.value}</dd>
             </div>
           ))}
         </div>
         <div>
           <dt className="text-muted text-xs mb-1">Description</dt>
-          <dd className="text-sm text-ink leading-relaxed">{form.description}</dd>
+          <dd className="text-sm text-ink leading-relaxed whitespace-pre-wrap">{form.description}</dd>
         </div>
       </div>
       <p className="text-xs text-muted">
         By submitting, you agree that the information provided is accurate to the best of your knowledge. You will receive a reference number to track your grievance.
       </p>
       <div className="flex gap-3">
-        <button onClick={back} className="btn-secondary px-5 py-2.5">← Back</button>
-        <button onClick={submit} className="btn-primary flex-1 justify-center">Submit Grievance</button>
+        <button onClick={back} disabled={loading} className="btn-secondary px-5 py-2.5">← Back</button>
+        <button onClick={submit} disabled={loading} className="btn-primary flex-1 justify-center disabled:opacity-75">
+          {loading ? (
+            <>
+              <ArrowPathIcon className="w-4 h-4 animate-spin" /> Submitting...
+            </>
+          ) : 'Submit Grievance'}
+        </button>
       </div>
     </motion.div>
   )
@@ -150,11 +158,40 @@ function SuccessState({ refNumber }) {
 export default function FileGrievancePage() {
   const [step, setStep] = useState(1)
   const [submitted, setSubmitted] = useState(false)
-  const [refNumber] = useState(() => `RTE-2025-${Math.floor(10000 + Math.random() * 90000)}`)
+  const [loading, setLoading] = useState(false)
+  const [refNumber, setRefNumber] = useState('')
   const [form, setForm] = useState({ state: '', category: '', school: '', description: '' })
   const [files, setFiles] = useState([])
 
   const steps = ['Details', 'Documents', 'Review']
+
+  const handleSubmit = async () => {
+    try {
+      setLoading(true)
+      const data = new FormData()
+      data.append('state', form.state)
+      data.append('category', form.category)
+      data.append('description', `${form.school ? `School: ${form.school}\n\n` : ''}${form.description}`)
+      
+      files.forEach(file => {
+        data.append('attachments', file)
+      })
+
+      const res = await api.post('/grievances', data, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+
+      if (res.data.status === 'success') {
+        setRefNumber(res.data.data.grievance.refNumber)
+        setSubmitted(true)
+        toast.success('Grievance filed successfully!')
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to submit grievance')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div style={{ paddingTop: '64px' }}>
@@ -193,7 +230,7 @@ export default function FileGrievancePage() {
               ) : step === 2 ? (
                 <Step2 files={files} setFiles={setFiles} next={() => setStep(3)} back={() => setStep(1)} />
               ) : (
-                <Step3 form={form} files={files} back={() => setStep(2)} submit={() => setSubmitted(true)} />
+                <Step3 form={form} files={files} back={() => setStep(2)} submit={handleSubmit} loading={loading} />
               )}
             </AnimatePresence>
           </div>

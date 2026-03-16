@@ -1,14 +1,40 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import { toast } from 'react-hot-toast'
+import useAuthStore from '../../store/authStore'
 
 const states = ['Andhra Pradesh','Arunachal Pradesh','Assam','Bihar','Chhattisgarh','Goa','Gujarat','Haryana','Himachal Pradesh','Jharkhand','Karnataka','Kerala','Madhya Pradesh','Maharashtra','Manipur','Meghalaya','Mizoram','Nagaland','Odisha','Punjab','Rajasthan','Sikkim','Tamil Nadu','Telangana','Tripura','Uttar Pradesh','Uttarakhand','West Bengal','Delhi','Jammu & Kashmir','Ladakh','Chandigarh','Puducherry','Andaman & Nicobar','Lakshadweep','Dadra & NH']
 
 export default function RegisterPage() {
+  const navigate = useNavigate()
+  const { register, loading } = useAuthStore()
+  
   const [form, setForm] = useState({ name: '', email: '', password: '', state: '', userType: '' })
   const [step, setStep] = useState(1)
 
   const update = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    
+    // Logic for normalizing userType to lowercase as expected by backend or keep as is?
+    // Backend model uses: citizen, moderator, admin as roles. userType is a separate field.
+    // The UI uses 'Parent', 'Student', etc. for userType.
+    
+    const userData = {
+      ...form,
+      userType: form.userType.toLowerCase()
+    }
+
+    const res = await register(userData)
+    if (res.success) {
+      toast.success(res.message || 'Account created!')
+      navigate('/login')
+    } else {
+      toast.error(res.message)
+    }
+  }
 
   return (
     <div style={{ paddingTop: '64px', background: '#F5EFE0', minHeight: '100vh' }}
@@ -33,20 +59,20 @@ export default function RegisterPage() {
             ))}
           </div>
 
-          <form onSubmit={e => e.preventDefault()} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             {step === 1 && (
               <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
                 <div>
                   <label className="block text-sm font-semibold text-ink mb-1.5">Full name</label>
-                  <input type="text" placeholder="Ayush Pandey" value={form.name} onChange={e => update('name', e.target.value)} className="input-rte" />
+                  <input type="text" placeholder="Ayush Pandey" value={form.name} onChange={e => update('name', e.target.value)} className="input-rte" required />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-ink mb-1.5">Email address</label>
-                  <input type="email" placeholder="you@example.com" value={form.email} onChange={e => update('email', e.target.value)} className="input-rte" />
+                  <input type="email" placeholder="you@example.com" value={form.email} onChange={e => update('email', e.target.value)} className="input-rte" required />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-ink mb-1.5">Password</label>
-                  <input type="password" placeholder="Min. 8 characters" value={form.password} onChange={e => update('password', e.target.value)} className="input-rte" />
+                  <input type="password" placeholder="Min. 8 characters" value={form.password} onChange={e => update('password', e.target.value)} className="input-rte" required minLength={8} />
                 </div>
                 <button type="button" onClick={() => setStep(2)} className="btn-primary w-full justify-center py-3.5">
                   Continue →
@@ -58,7 +84,7 @@ export default function RegisterPage() {
               <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
                 <div>
                   <label className="block text-sm font-semibold text-ink mb-1.5">Your state</label>
-                  <select value={form.state} onChange={e => update('state', e.target.value)} className="input-rte">
+                  <select value={form.state} onChange={e => update('state', e.target.value)} className="input-rte" required>
                     <option value="">Select your state / UT</option>
                     {states.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
@@ -82,7 +108,13 @@ export default function RegisterPage() {
                 </div>
                 <div className="flex gap-3">
                   <button type="button" onClick={() => setStep(1)} className="btn-secondary flex-1 justify-center py-3">← Back</button>
-                  <button type="submit" className="btn-primary flex-1 justify-center py-3">Create Account</button>
+                  <button 
+                    type="submit" 
+                    disabled={loading || !form.userType}
+                    className="btn-primary flex-1 justify-center py-3 disabled:opacity-50"
+                  >
+                    {loading ? 'Creating...' : 'Create Account'}
+                  </button>
                 </div>
               </motion.div>
             )}

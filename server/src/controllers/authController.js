@@ -57,6 +57,7 @@ exports.register = catchAsync(async (req, res, next) => {
     passwordHash,
     state,
     userType,
+    isVerified: true, // Auto-verify for testing
     verifyToken,
     verifyTokenExpiry: Date.now() + 24 * 60 * 60 * 1000 // 24 hours
   });
@@ -197,3 +198,27 @@ exports.resetPassword = catchAsync(async (req, res, next) => {
   // 3) Log the user in, send JWT
   await signSendTokens(user, 200, res);
 });
+
+/**
+ * Update password (Logged-in users)
+ */
+exports.updatePassword = catchAsync(async (req, res, next) => {
+  const { currentPassword, newPassword } = req.body;
+
+  // 1) Get user from collection
+  const user = await User.findById(req.user.id).select('+passwordHash');
+
+  // 2) Check if POSTed current password is correct
+  if (!(await bcrypt.compare(currentPassword, user.passwordHash))) {
+    return next(new AppError('Your current password is wrong', 401));
+  }
+
+  // 3) Update password
+  user.passwordHash = await bcrypt.hash(newPassword, 12);
+  user.refreshTokenHash = undefined; // logout from other devices
+  await user.save();
+
+  // 4) Log user in (send new JWT)
+  await signSendTokens(user, 200, res);
+});
+

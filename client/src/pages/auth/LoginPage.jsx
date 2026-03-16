@@ -1,11 +1,40 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline'
+import { toast } from 'react-hot-toast'
+import useAuthStore from '../../store/authStore'
 
 export default function LoginPage() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const { login, loading } = useAuthStore()
+  
   const [showPw, setShowPw] = useState(false)
   const [form, setForm] = useState({ email: '', password: '' })
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!form.email || !form.password) {
+      return toast.error('Please fill in all fields')
+    }
+
+    const res = await login(form.email, form.password)
+    if (res.success) {
+      toast.success('Welcome back!')
+      
+      // Role-based redirection
+      const user = useAuthStore.getState().user;
+      if (user?.role === 'admin' || user?.role === 'moderator') {
+        navigate('/admin')
+      } else {
+        const origin = location.state?.from?.pathname || '/'
+        navigate(origin)
+      }
+    } else {
+      toast.error(res.message)
+    }
+  }
 
   return (
     <div style={{ paddingTop: '64px', background: '#F5EFE0', minHeight: '100vh' }}
@@ -27,7 +56,7 @@ export default function LoginPage() {
             <p className="text-sm text-muted mt-1">Sign in to your account</p>
           </div>
 
-          <form onSubmit={e => e.preventDefault()} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="block text-sm font-semibold text-ink mb-1.5">Email address</label>
               <input
@@ -36,6 +65,7 @@ export default function LoginPage() {
                 value={form.email}
                 onChange={e => setForm({ ...form, email: e.target.value })}
                 className="input-rte"
+                required
               />
             </div>
             <div>
@@ -47,6 +77,7 @@ export default function LoginPage() {
                   value={form.password}
                   onChange={e => setForm({ ...form, password: e.target.value })}
                   className="input-rte pr-11"
+                  required
                 />
                 <button type="button" onClick={() => setShowPw(!showPw)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-ink transition-colors">
@@ -60,8 +91,12 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <button type="submit" className="btn-primary w-full justify-center py-3.5 text-base">
-              Sign in
+            <button 
+              type="submit" 
+              disabled={loading}
+              className="btn-primary w-full justify-center py-3.5 text-base disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? 'Signing in...' : 'Sign in'}
             </button>
           </form>
 

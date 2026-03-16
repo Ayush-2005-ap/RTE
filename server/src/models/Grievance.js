@@ -58,13 +58,12 @@ const grievanceSchema = new mongoose.Schema({
   timestamps: true
 });
 
-grievanceSchema.pre('save', function(next) {
-  if (!this.isNew) return next();
+grievanceSchema.pre('save', function() {
+  if (!this.isNew) return;
   
   const year = new Date().getFullYear();
   const randomChars = Math.random().toString(36).substring(2, 7).toUpperCase();
   this.refNumber = `RTE-${year}-${randomChars}`;
-  next();
 });
 
 grievanceSchema.index({ author: 1, status: 1 });

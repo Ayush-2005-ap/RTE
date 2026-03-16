@@ -5,6 +5,7 @@ import HomePage from './pages/HomePage'
 import LoginPage from './pages/auth/LoginPage'
 import RegisterPage from './pages/auth/RegisterPage'
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage'
+import ResetPasswordPage from './pages/auth/ResetPasswordPage'
 import StatesListPage from './pages/states/StatesListPage'
 import StateDetailPage from './pages/states/StateDetailPage'
 import QuestionsListPage from './pages/community/QuestionsListPage'
@@ -25,53 +26,80 @@ import AdminDashboardPage from './pages/admin/AdminDashboardPage'
 import ProfilePage from './pages/ProfilePage'
 import NotFoundPage from './pages/NotFoundPage'
 
+import { Toaster } from 'react-hot-toast'
+import ProtectedRoute from './components/auth/ProtectedRoute'
+
 export default function App() {
   return (
-    <AnimatePresence mode="wait">
-      <Routes>
-        <Route element={<Layout />}>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
+    <>
+      <Toaster position="top-center" reverseOrder={false} />
+      <AnimatePresence mode="wait">
+        <Routes>
+          <Route element={<Layout />}>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
+            <Route path="/profile" element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            } />
 
-          {/* States */}
-          <Route path="/states" element={<StatesListPage />} />
-          <Route path="/states/:stateSlug" element={<StateDetailPage />} />
+            {/* States */}
+            <Route path="/states" element={<StatesListPage />} />
+            <Route path="/states/:stateSlug" element={<StateDetailPage />} />
 
-          {/* Community */}
-          <Route path="/community/questions" element={<QuestionsListPage />} />
-          <Route path="/community/questions/:id" element={<QuestionDetailPage />} />
-          <Route path="/community/ask" element={<AskQuestionPage />} />
-          <Route path="/community/discussions" element={<DiscussionsPage />} />
+            {/* Community */}
+            <Route path="/community/questions" element={<QuestionsListPage />} />
+            <Route path="/community/questions/:id" element={<QuestionDetailPage />} />
+            <Route path="/community/ask" element={
+              <ProtectedRoute>
+                <AskQuestionPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/community/discussions" element={<DiscussionsPage />} />
 
-          {/* Grievances */}
-          <Route path="/grievances/file" element={<FileGrievancePage />} />
-          <Route path="/grievances/my" element={<MyGrievancesPage />} />
-          <Route path="/grievances/:id" element={<GrievanceDetailPage />} />
+            {/* Grievances */}
+            <Route path="/grievances/file" element={
+               <ProtectedRoute>
+                 <FileGrievancePage />
+               </ProtectedRoute>
+            } />
+            <Route path="/grievances/my" element={
+              <ProtectedRoute>
+                <MyGrievancesPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/grievances/:id" element={<GrievanceDetailPage />} />
 
-          {/* News */}
-          <Route path="/news" element={<NewsPage />} />
-          <Route path="/news/:id" element={<NewsDetailPage />} />
+            {/* News */}
+            <Route path="/news" element={<NewsPage />} />
+            <Route path="/news/:id" element={<NewsDetailPage />} />
 
-          {/* Blog */}
-          <Route path="/blog" element={<BlogListPage />} />
-          <Route path="/blog/:slug" element={<BlogDetailPage />} />
+            {/* Blog */}
+            <Route path="/blog" element={<BlogListPage />} />
+            <Route path="/blog/:slug" element={<BlogDetailPage />} />
 
-          {/* Know Your RTE */}
-          <Route path="/know-your-rte/about" element={<AboutRTEPage />} />
-          <Route path="/know-your-rte/rights" element={<RightsPage />} />
+            {/* Know Your RTE */}
+            <Route path="/know-your-rte/about" element={<AboutRTEPage />} />
+            <Route path="/know-your-rte/rights" element={<RightsPage />} />
 
-          {/* Search */}
-          <Route path="/search" element={<SearchResultsPage />} />
+            {/* Search */}
+            <Route path="/search" element={<SearchResultsPage />} />
 
-          {/* Admin */}
-          <Route path="/admin/*" element={<AdminDashboardPage />} />
+            {/* Admin */}
+            <Route path="/admin/*" element={
+              <ProtectedRoute roles={['admin', 'moderator']}>
+                <AdminDashboardPage />
+              </ProtectedRoute>
+            } />
 
-          <Route path="*" element={<NotFoundPage />} />
-        </Route>
-      </Routes>
-    </AnimatePresence>
+            <Route path="*" element={<NotFoundPage />} />
+          </Route>
+        </Routes>
+      </AnimatePresence>
+    </>
   )
 }

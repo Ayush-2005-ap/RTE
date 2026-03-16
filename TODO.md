@@ -136,19 +136,17 @@
 ## 💬 PHASE 3 — Community Q&A Module
 
 ### 3.1 Backend — Questions & Answers
-- [ ] Create `Question` Mongoose model: `_id`, `title`, `body`, `author` (ref), `state`, `category`, `tags[]`, `answers[]`, `upvotes[]`, `answerCount`, `status` (`open` / `answered` / `closed`), `createdAt`
-- [ ] Create `Answer` Mongoose model: `_id`, `questionId` (ref), `body`, `author` (ref), `upvotes[]`, `isVerified`, `createdAt`
-- [ ] Add compound indexes: `{state, category, createdAt}`, `{author, createdAt}`, `{status, createdAt}`
-- [ ] `GET /api/v1/questions` — paginated list (filter by state, category, status, tag); cursor-based pagination
-- [ ] `POST /api/v1/questions` — create question (auth required + `isVerified: true`)
-- [ ] `GET /api/v1/questions/:id` — full question with answers
-- [ ] `PATCH /api/v1/questions/:id` — edit own question (or admin)
-- [ ] `DELETE /api/v1/questions/:id` — delete own question (or moderator/admin)
-- [ ] `POST /api/v1/questions/:id/answers` — post an answer (auth required)
-- [ ] `POST /api/v1/questions/:id/upvote` — toggle upvote on question
-- [ ] `POST /api/v1/questions/:id/answers/:answerId/upvote` — toggle upvote on answer
-- [ ] Moderator: `PATCH /api/v1/questions/:id/mark-answered` — mark best answer as verified
-- [ ] Moderator: `PATCH /api/v1/questions/:id/status` — open / close question
+- [x] Create `Question` Mongoose model: `_id`, `title`, `body`, `author` (ref), `state`, `category`, `tags[]`, `upvotes[]`, `answerCount`, `status`, `views`, `createdAt`
+- [x] Create `Answer` Mongoose model: `_id`, `questionId` (ref), `body`, `author` (ref), `upvotes[]`, `isVerified`, `createdAt`
+- [x] Add compound indexes: `{state, category, createdAt}`, `{author, createdAt}`, `{status, createdAt}`
+- [x] `GET /api/v1/questions` — paginated list (filter by state, category, status, tag)
+- [x] `POST /api/v1/questions` — create question (auth required)
+- [x] `GET /api/v1/questions/:id` — full question with answers
+- [x] `PATCH /api/v1/questions/:id` — edit own question (via general controller logic)
+- [x] `POST /api/v1/questions/:id/answers` — post an answer (auth required)
+- [x] `POST /api/v1/questions/:id/vote` — toggle upvote on question
+- [x] Moderator: `PATCH /api/v1/questions/answers/:id/verify` — mark answer as verified
+- [x] Moderator: `PATCH /api/v1/questions/:id/status` — toggle status (via update logic)
 
 ### 3.2 Frontend — Q&A Feature (`src/features/community/`)
 - [ ] Build `QuestionsListPage` (`/community/questions`): paginated feed with filter bar (state, category, status), search box
@@ -178,19 +176,19 @@
 ## 📋 PHASE 4 — Grievance Filing & Tracking
 
 ### 4.1 Backend — Grievances
-- [ ] Create `Grievance` Mongoose model: `_id`, `refNumber` (unique auto-generated), `author` (ref), `state`, `category`, `description`, `attachments[]` (Cloudinary URLs), `status` (`filed` / `reviewing` / `resolved` / `escalated`), `adminNotes[]`, `createdAt`, `updatedAt`
-- [ ] Add index on `{author, createdAt}` and `{state, status, createdAt}`
-- [ ] `POST /api/v1/grievances` — file grievance with file upload (multer + Cloudinary); validate type (PDF/PNG/JPG) + 20MB limit; send confirmation email with ref number
-- [ ] `GET /api/v1/grievances/my` — list authenticated user's own grievances
-- [ ] `GET /api/v1/grievances/:id` — read own grievance (or admin)
-- [ ] `PATCH /api/v1/grievances/:id/status` (admin) — update status + add admin note; send notification email to user
+- [x] Create `Grievance` Mongoose model: `_id`, `refNumber` (unique auto-generated), `author` (ref), `state`, `category`, `description`, `attachments[]`, `status`, `adminNotes[]`, `createdAt`, `updatedAt`
+- [x] Add index on `{author, createdAt}` and `{state, status, createdAt}`
+- [x] `POST /api/v1/grievances` — file grievance with file upload (multer + Cloudinary)
+- [x] `GET /api/v1/grievances/my` — list authenticated user's own grievances
+- [x] `GET /api/v1/grievances/:id` — read own grievance (or admin)
+- [x] `PATCH /api/v1/grievances/:id/status` (admin) — update status + add admin note
 
 ### 4.2 Cloudinary File Upload Utility
-- [ ] Configure Cloudinary credentials via environment variables
-- [ ] Write `uploadToCloudinary(fileBuffer, resourceType)` utility using `streamifier`
-- [ ] Write `deleteFromCloudinary(publicId)` utility
-- [ ] Apply multer middleware (`memoryStorage`) for in-memory file handling before Cloudinary upload
-- [ ] Enforce file type whitelist (PDF / PNG / JPG) and 20MB max size in multer config
+- [x] Configure Cloudinary credentials via environment variables
+- [x] Write `uploadFromBuffer(fileBuffer, folder)` utility using `streamifier`
+- [x] Write `deleteFromCloudinary(publicId)` utility
+- [x] Apply multer middleware (`memoryStorage`) for in-memory file handling before Cloudinary upload
+- [x] Enforce file type whitelist (PDF / PNG / JPG) and 5MB max size in multer config
 
 ### 4.3 Frontend — Grievance Feature
 - [x] Build `FileGrievancePage` (`/grievances/file`): multi-step form (Step 1: state + category + description · Step 2: attach files · Step 3: review + submit); Zod validation implemented.

@@ -30,21 +30,28 @@ const navLinks = [
   { label: 'Blog', href: '/blog' },
 ]
 
+import useAuthStore from '../../store/authStore'
+
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [openDropdown, setOpenDropdown] = useState(null)
+  
   const navigate = useNavigate()
-  // Mock auth — replace with Zustand store later
-  const isLoggedIn = false
+  const { isAuthenticated, user, logout } = useAuthStore()
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20)
     window.addEventListener('scroll', onScroll)
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
+
+  const handleLogout = async () => {
+    await logout()
+    navigate('/')
+  }
 
   const handleSearch = (e) => {
     e.preventDefault()
@@ -140,12 +147,22 @@ export default function Navbar() {
               <MagnifyingGlassIcon className="w-5 h-5" />
             </button>
 
-            {isLoggedIn ? (
+            {isAuthenticated ? (
               <div className="hidden md:flex items-center gap-2">
-                <Link to="/profile" className="p-1.5 text-white/80 hover:text-white transition-colors">
+                {(user?.role === 'admin' || user?.role === 'moderator') && (
+                  <Link to="/admin" className="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-saffron-DEFAULT hover:text-white transition-colors rounded-lg bg-white/10 hover:bg-white/15" style={{ color: '#E8872A' }}>
+                    Dashboard
+                  </Link>
+                )}
+                <Link to="/profile" className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-white/80 hover:text-white transition-colors rounded-lg hover:bg-white/10">
                   <UserCircleIcon className="w-6 h-6" />
+                  <span className="max-w-[100px] truncate">{user?.name?.split(' ')[0]}</span>
                 </Link>
-                <button className="p-1.5 text-white/80 hover:text-white transition-colors">
+                <button 
+                  onClick={handleLogout}
+                  className="p-1.5 text-white/80 hover:text-white transition-colors hover:bg-white/10 rounded-lg"
+                  title="Logout"
+                >
                   <ArrowRightOnRectangleIcon className="w-5 h-5" />
                 </button>
               </div>
@@ -154,9 +171,6 @@ export default function Navbar() {
                 <Link to="/login" className="btn-primary text-gray-400 hover:text-white text-sm px-3 py-1.5">
                   Login
                 </Link>
-                {/* <Link to="/register" className="btn-primary text-sm px-4 py-2" style={{ fontSize: '13px' }}>
-                  Register
-                </Link> */}
               </div>
             )}
 
@@ -212,8 +226,30 @@ export default function Navbar() {
                 )
               )}
               <div className="mt-6 flex flex-col gap-3 border-t border-white/10 pt-6">
-                <Link to="/login" onClick={() => setMobileOpen(false)} className="btn-secondary text-white border-white/30 text-center">Login</Link>
-                <Link to="/register" onClick={() => setMobileOpen(false)} className="btn-primary text-center">Register</Link>
+                {isAuthenticated ? (
+                  <>
+                    {(user?.role === 'admin' || user?.role === 'moderator') && (
+                      <Link to="/admin" onClick={() => setMobileOpen(false)} className="px-4 py-3 text-[#E8872A] font-bold bg-white/5 rounded-xl text-center mb-2">
+                        Admin Dashboard
+                      </Link>
+                    )}
+                    <Link to="/profile" onClick={() => setMobileOpen(false)} className="btn-secondary text-white border-white/30 text-center">My Profile</Link>
+                    <button 
+                      onClick={() => {
+                        handleLogout();
+                        setMobileOpen(false);
+                      }} 
+                      className="btn-primary text-center"
+                    >
+                      Logout
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Link to="/login" onClick={() => setMobileOpen(false)} className="btn-secondary text-white border-white/30 text-center">Login</Link>
+                    <Link to="/register" onClick={() => setMobileOpen(false)} className="btn-primary text-center">Register</Link>
+                  </>
+                )}
               </div>
             </div>
           </motion.div>
