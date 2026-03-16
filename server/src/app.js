@@ -55,8 +55,24 @@ app.get('/api/v1/health', (req, res) => {
 
 // 2) ROUTES
 const authRoutes = require('./routes/authRoutes');
+const userRoutes = require('./routes/userRoutes');
+const questionRoutes = require('./routes/questionRoutes');
+const grievanceRoutes = require('./routes/grievanceRoutes');
+const stateRoutes = require('./routes/stateRoutes');
+const newsRoutes = require('./routes/newsRoutes');
+const blogRoutes = require('./routes/blogRoutes');
+const searchRoutes = require('./routes/searchRoutes');
+const statsRoutes = require('./routes/statsRoutes');
 
 app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/users', userRoutes);
+app.use('/api/v1/questions', questionRoutes);
+app.use('/api/v1/grievances', grievanceRoutes);
+app.use('/api/v1/states', stateRoutes);
+app.use('/api/v1/news', newsRoutes);
+app.use('/api/v1/blog', blogRoutes);
+app.use('/api/v1/search', searchRoutes);
+app.use('/api/v1/stats', statsRoutes);
 
 // handle undefined routes
 app.all('*', (req, res, next) => {
