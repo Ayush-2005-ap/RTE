@@ -27,18 +27,18 @@
 - [x] Install Google Fonts (Playfair Display, DM Sans, DM Mono) via `<link>` in `index.html`
 
 ### 0.3 Backend Scaffold (Express + MongoDB)
-- [ ] Initialise Node.js project inside `/server` (`npm init -y`)
-- [ ] Install all backend dependencies (see Section 14.2 of Tech Stack doc)
-- [ ] Set up `src/` folder structure: `controllers/`, `routes/`, `models/`, `middleware/`, `services/`, `utils/`, `config/`
-- [ ] Configure `nodemon` for development auto-restart
-- [ ] Create `server.js` entry point with Express app setup
-- [ ] Add `.env.example` with all required environment variable keys
-- [ ] Configure `morgan` for request logging
-- [ ] Configure `compression` middleware for Gzip
-- [ ] Configure `helmet` security headers
-- [ ] Configure `cors` (restricted to Vercel frontend origin for production)
-- [ ] Add global error-handling middleware
-- [ ] Set up `config/db.js` for Mongoose connection with connection pooling
+- [x] Initialise Node.js project inside `/server` (`npm init -y`)
+- [x] Install all backend dependencies (see Section 14.2 of Tech Stack doc)
+- [x] Set up `src/` folder structure: `controllers/`, `routes/`, `models/`, `middleware/`, `services/`, `utils/`, `config/`
+- [x] Configure `nodemon` for development auto-restart
+- [x] Create `server.js` entry point with Express app setup
+- [x] Add `.env.example` with all required environment variable keys
+- [x] Configure `morgan` for request logging
+- [x] Configure `compression` middleware for Gzip
+- [x] Configure `helmet` security headers
+- [x] Configure `cors` (restricted to Vercel frontend origin for production)
+- [x] Add global error-handling middleware
+- [x] Set up `config/db.js` for Mongoose connection with connection pooling
 
 ### 0.4 Database Setup
 - [ ] Create MongoDB Atlas cluster (M0 Free tier)
@@ -60,14 +60,14 @@
 ## 🔐 PHASE 1 — Authentication & User Management
 
 ### 1.1 Backend — Auth Models & Middleware
-- [ ] Create `User` Mongoose model with fields: `_id`, `name`, `email`, `passwordHash`, `role` (`citizen` / `moderator` / `admin`), `state`, `userType`, `isVerified`, `createdAt`
-- [ ] Create `RefreshToken` model (store bcrypt-hashed token, userId, expiry, device info)
-- [ ] Write `hashPassword` utility using `bcryptjs` (12 rounds)
-- [ ] Write `generateAccessToken` JWT utility (15-minute expiry)
-- [ ] Write `generateRefreshToken` JWT utility (7-day expiry)
-- [ ] Write `verifyToken` middleware to protect routes (`Authorization: Bearer <token>`)
-- [ ] Write `requireRole(roles[])` middleware for role-based access control
-- [ ] Apply `express-rate-limit` on auth routes: 5 requests / 15 min / IP
+- [x] Create `User` Mongoose model with fields: `_id`, `name`, `email`, `passwordHash`, `role`, `state`, `userType`, `isVerified`, `createdAt`
+- [x] Create `RefreshToken` model logic (integrated into User model as refreshTokenHash)
+- [x] Write `hashPassword` utility using `bcryptjs` (12 rounds)
+- [x] Write `generateAccessToken` JWT utility (15-minute expiry)
+- [x] Write `generateRefreshToken` JWT utility (7-day expiry)
+- [x] Write `verifyToken` middleware to protect routes (`Authorization: Bearer <token>`)
+- [x] Write `requireRole(roles[])` middleware for role-based access control
+- [x] Apply `express-rate-limit` on auth routes: 5 requests / 15 min / IP
 
 ### 1.2 Backend — Auth Endpoints (`/api/v1/auth`)
 - [ ] `POST /register` — validate with Zod, hash password, send verification email, return user object (no token until verified)

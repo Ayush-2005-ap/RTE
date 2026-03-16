@@ -75,7 +75,7 @@ app.use('/api/v1/search', searchRoutes);
 app.use('/api/v1/stats', statsRoutes);
 
 // handle undefined routes
-app.all('*', (req, res, next) => {
+app.all(/(.*)/, (req, res, next) => {
   next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));
 });
 
