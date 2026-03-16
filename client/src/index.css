@@ -5,14 +5,20 @@
 /* ─── Base Resets ─────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; }
 
-html { scroll-behavior: smooth; }
+html, body {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden; /* Prevent horizontal jitter */
+  height: auto;
+  scroll-behavior: auto; /* scroll-behavior:smooth conflicts with GSAP ScrollTrigger */
+}
 
 body {
   font-family: 'DM Sans', system-ui, sans-serif;
   font-size: 17px;
   line-height: 1.7;
   color: #333333;
-  background-color: #F5EFE0;
+  background-color: #F8F7F6; /* Matches book animation background */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

@@ -45,7 +45,7 @@ function Step1({ form, setForm, next }) {
   )
 }
 
-function Step2({ form, setForm, files, setFiles, next, back }) {
+function Step2({ files, setFiles, next, back }) {
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: { 'image/*': [], 'application/pdf': [] },
     maxSize: 20 * 1024 * 1024,
@@ -150,7 +150,7 @@ function SuccessState({ refNumber }) {
 export default function FileGrievancePage() {
   const [step, setStep] = useState(1)
   const [submitted, setSubmitted] = useState(false)
-  const [refNumber] = useState(`RTE-2025-${Math.floor(10000 + Math.random() * 90000)}`)
+  const [refNumber] = useState(() => `RTE-2025-${Math.floor(10000 + Math.random() * 90000)}`)
   const [form, setForm] = useState({ state: '', category: '', school: '', description: '' })
   const [files, setFiles] = useState([])
 
@@ -191,7 +191,7 @@ export default function FileGrievancePage() {
               ) : step === 1 ? (
                 <Step1 form={form} setForm={setForm} next={() => setStep(2)} />
               ) : step === 2 ? (
-                <Step2 form={form} setForm={setForm} files={files} setFiles={setFiles} next={() => setStep(3)} back={() => setStep(1)} />
+                <Step2 files={files} setFiles={setFiles} next={() => setStep(3)} back={() => setStep(1)} />
               ) : (
                 <Step3 form={form} files={files} back={() => setStep(2)} submit={() => setSubmitted(true)} />
               )}

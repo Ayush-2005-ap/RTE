@@ -151,7 +151,7 @@ export default function Navbar() {
               </div>
             ) : (
               <div className="hidden md:flex items-center gap-2">
-                <Link to="/login" className="btn-ghost text-white/80 hover:text-white text-sm px-3 py-1.5">
+                <Link to="/login" className="btn-ghost text-gray-400 hover:text-white text-sm px-3 py-1.5">
                   Login
                 </Link>
                 <Link to="/register" className="btn-primary text-sm px-4 py-2" style={{ fontSize: '13px' }}>

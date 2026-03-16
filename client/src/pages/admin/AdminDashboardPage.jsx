@@ -1,5 +1,4 @@
-import { useState } from 'react'
-import { Link, useLocation, NavLink } from 'react-router-dom'
+import { Link, NavLink } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
   ChartBarIcon, UsersIcon, ShieldCheckIcon, MapIcon,
@@ -32,8 +31,7 @@ const recentGrievances = [
 const statusColor = { filed: '#1A2744', reviewing: '#E8872A', resolved: '#2E7D32', escalated: '#C62828' }
 
 export default function AdminDashboardPage() {
-  const location = useLocation()
-  const isExactAdmin = location.pathname === '/admin'
+  // No unused location needed here
 
   return (
     <div style={{ paddingTop: '64px', display: 'flex', minHeight: '100vh', background: '#F5EFE0' }}>

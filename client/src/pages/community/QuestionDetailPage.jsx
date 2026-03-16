@@ -36,7 +36,7 @@ What legal recourse do we have? Can we escalate this to the district education o
 }
 
 export default function QuestionDetailPage() {
-  const { id } = useParams()
+  useParams()
   const q = mockQuestion
   const [answer, setAnswer] = useState('')
   const [upvoted, setUpvoted] = useState(false)

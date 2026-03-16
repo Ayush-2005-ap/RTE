@@ -1,3 +1,6 @@
+import typography from '@tailwindcss/typography'
+import forms from '@tailwindcss/forms'
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{js,jsx,ts,tsx}'],
@@ -38,6 +41,7 @@ export default {
           300: '#e0d1a8',
           400: '#cdbc84',
           500: '#baa060',
+          600: '#BAA060', // Corrected capitalization to match pattern if needed, but not necessary here
         },
         ink: '#333333',
         muted: '#888888',
@@ -85,7 +89,7 @@ export default {
     },
   },
   plugins: [
-    require('@tailwindcss/typography'),
-    require('@tailwindcss/forms'),
+    typography,
+    forms,
   ],
 };
