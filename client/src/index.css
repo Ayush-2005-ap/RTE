@@ -1,0 +1,187 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Base Resets ─────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'DM Sans', system-ui, sans-serif;
+  font-size: 17px;
+  line-height: 1.7;
+  color: #333333;
+  background-color: #F5EFE0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─── Custom Scrollbar ────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #ede3c8; }
+::-webkit-scrollbar-thumb { background: #1A2744; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #E8872A; }
+
+/* ─── Typography Utilities ────────────────────────── */
+.font-display { font-family: 'Playfair Display', Georgia, serif; }
+.font-mono-rte { font-family: 'DM Mono', monospace; }
+
+.text-hero {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: clamp(40px, 7vw, 72px);
+  font-weight: 800;
+  line-height: 1.08;
+}
+
+.text-h1 {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: clamp(28px, 4vw, 36px);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.text-h2 {
+  font-family: 'DM Sans', sans-serif;
+  font-size: clamp(20px, 3vw, 28px);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+/* ─── Glass Card ───────────────────────────────────── */
+.glass-card {
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 16px;
+  box-shadow: 0 4px 24px rgba(26, 39, 68, 0.09);
+}
+
+.glass-card-dark {
+  background: rgba(26, 39, 68, 0.65);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  box-shadow: 0 4px 32px rgba(0, 0, 0, 0.25);
+}
+
+/* ─── Saffron Underline Decoration ───────────────── */
+.saffron-underline {
+  position: relative;
+  display: inline-block;
+}
+.saffron-underline::after {
+  content: '';
+  position: absolute;
+  left: 0; bottom: -4px;
+  width: 100%; height: 3px;
+  background: linear-gradient(90deg, #E8872A, #f0b152);
+  border-radius: 2px;
+}
+
+/* ─── Buttons ─────────────────────────────────────── */
+.btn-primary {
+  @apply inline-flex items-center gap-2 px-6 py-3 text-white font-semibold rounded-xl transition-all duration-200;
+  background: linear-gradient(135deg, #E8872A, #f0a952);
+  box-shadow: 0 4px 16px rgba(232,135,42,0.32);
+}
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(232,135,42,0.44);
+}
+.btn-primary:active { transform: translateY(0); }
+
+.btn-secondary {
+  @apply inline-flex items-center gap-2 px-6 py-3 font-semibold rounded-xl border-2 transition-all duration-200;
+  border-color: #1A2744;
+  color: #1A2744;
+  background: transparent;
+}
+.btn-secondary:hover {
+  background: #1A2744;
+  color: white;
+  transform: translateY(-2px);
+}
+
+.btn-ghost {
+  @apply inline-flex items-center gap-2 px-4 py-2 font-medium rounded-lg transition-all duration-200 text-navy-600;
+}
+.btn-ghost:hover { background: rgba(26,39,68,0.07); }
+
+/* ─── Card Hover Effects ─────────────────────────── */
+.card-hover {
+  @apply transition-all duration-300 cursor-pointer;
+}
+.card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(26,39,68,0.14);
+}
+
+/* ─── Badge Styles ───────────────────────────────── */
+.badge {
+  @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold;
+}
+.badge-saffron { @apply badge; background: rgba(232,135,42,0.15); color: #c66e15; }
+.badge-navy    { @apply badge; background: rgba(26,39,68,0.1);    color: #1A2744;  }
+.badge-success { @apply badge; background: rgba(46,125,50,0.12);  color: #2E7D32;  }
+.badge-alert   { @apply badge; background: rgba(198,40,40,0.12);  color: #C62828;  }
+.badge-muted   { @apply badge; background: rgba(136,136,136,0.1); color: #666;     }
+
+/* ─── Input Styles ───────────────────────────────── */
+.input-rte {
+  @apply w-full px-4 py-3 rounded-xl border-2 bg-white text-ink placeholder-muted transition-all duration-200;
+  border-color: rgba(26,39,68,0.15);
+  font-family: 'DM Sans', sans-serif;
+}
+.input-rte:focus {
+  outline: none;
+  border-color: #E8872A;
+  box-shadow: 0 0 0 3px rgba(232,135,42,0.15);
+}
+
+/* ─── Section Padding ────────────────────────────── */
+.section { @apply py-16 md:py-24 px-4; }
+.container-rte { @apply max-w-7xl mx-auto; }
+
+/* ─── Compliance Score Colours ───────────────────── */
+.score-high   { color: #2E7D32; }
+.score-medium { color: #E8872A; }
+.score-low    { color: #C62828; }
+.score-bar-high   { background: #2E7D32; }
+.score-bar-medium { background: #E8872A; }
+.score-bar-low    { background: #C62828; }
+
+/* ─── Shimmer Skeleton ───────────────────────────── */
+.skeleton {
+  background: linear-gradient(90deg, #ede3c8 25%, #e5d9b6 50%, #ede3c8 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 8px;
+}
+
+/* ─── Page Transition Wrapper ────────────────────── */
+.page-enter { opacity: 0; transform: translateY(12px); }
+.page-enter-active { opacity: 1; transform: translateY(0); transition: all 0.35s ease; }
+.page-exit { opacity: 1; }
+.page-exit-active { opacity: 0; transition: opacity 0.2s ease; }
+
+/* ─── Custom Timeline/Status Tracker ────────────── */
+.step-active   { background: #E8872A; border-color: #E8872A; color: white; }
+.step-done     { background: #2E7D32; border-color: #2E7D32; color: white; }
+.step-pending  { background: white;   border-color: #ccc;    color: #888;  }
+.step-escalate { background: #C62828; border-color: #C62828; color: white; }
+
+/* ─── Tiptap Editor Override ─────────────────────── */
+.ProseMirror {
+  min-height: 200px;
+  padding: 1rem;
+  outline: none;
+  font-family: 'DM Sans', sans-serif;
+  line-height: 1.7;
+}
+.ProseMirror p { margin-bottom: 0.75rem; }
+
+/* ─── Print ──────────────────────────────────────── */
+@media print { nav, footer, .no-print { display: none !important; } }
