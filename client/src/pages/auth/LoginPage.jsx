@@ -100,12 +100,7 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <div className="mt-6 text-center">
-            <p className="text-sm text-muted">
-              Don't have an account?{' '}
-              <Link to="/register" className="font-semibold" style={{ color: '#1A2744' }}>Create one</Link>
-            </p>
-          </div>
+
         </div>
       </motion.div>
     </div>

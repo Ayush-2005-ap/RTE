@@ -5,8 +5,6 @@ import { ChatBubbleLeftRightIcon, PlusIcon } from '@heroicons/react/24/outline'
 const discussions = [
   { id: 1, title: 'Understanding the 25% EWS reservation — A comprehensive guide for parents', replies: 23, author: 'Admin', category: 'Guide', date: 'Mar 5, 2025', isPinned: true },
   { id: 2, title: 'Share your RTE admission experience for 2025-26 academic year', replies: 47, author: 'Moderator', category: 'Community', date: 'Mar 1, 2025', isPinned: true },
-  { id: 3, title: 'Schools refusing to provide books to RTE students — Legal action taken in UP', replies: 12, author: 'Ravi S.', category: 'News', date: 'Feb 28, 2025', isPinned: false },
-  { id: 4, title: 'Which states have the best grievance redressal for RTE violations?', replies: 8, author: 'Priya M.', category: 'Discussion', date: 'Feb 25, 2025', isPinned: false },
 ]
 
 export default function DiscussionsPage() {

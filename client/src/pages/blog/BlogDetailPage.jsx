@@ -31,7 +31,7 @@ Most states have an online portal for RTE admissions. In Delhi, it is at edudel.
 
 ## What if the school denies admission?
 
-Schools cannot legally deny admission if the quota is not filled. If you face denial, you should file a complaint with the District Education Officer (DEO) immediately. Our platform can help you track this grievance.`,
+Schools cannot legally deny admission if the quota is not filled. If you face denial, you should file a complaint with the District Education Officer (DEO) immediately.`,
   },
 }
 
@@ -81,7 +81,6 @@ export default function BlogDetailPage() {
             <div className="mt-8 pt-6 border-t" style={{ borderColor: 'rgba(26,39,68,0.08)' }}>
               <p className="text-sm font-semibold text-ink mb-3">Related actions</p>
               <div className="flex flex-wrap gap-3">
-                <Link to="/grievances/file" className="btn-primary text-sm px-4 py-2">File Grievance</Link>
                 <Link to="/community/ask" className="btn-secondary text-sm px-4 py-2">Ask a Question</Link>
               </div>
             </div>

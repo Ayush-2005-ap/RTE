@@ -1,16 +1,19 @@
 /**
  * BookScrollExperience.jsx
  * ─────────────────────────────────────────────────────────────────────────────
- * Full cinematic scroll-driven book animation for the RTE homepage hero.
- * GSAP ScrollTrigger drives everything. CSS-only book construction.
+ * Redesigned landing page — two-part cinematic experience:
  *
- * Architecture:
- *  • scrollContainerRef — tall div (500vh) that defines scroll distance
- *  • stickyPanelRef     — pinned by ScrollTrigger (NOT by CSS position:sticky)
- *  • bookWrapRef        — 3D perspective wrapper; GSAP translates it left
- *  • bookBodyRef        — the 3D book (rotateX perspective angle)
- *  • bookCoverRef       — the hinge cover (rotateY opens it)
- *  • block1–7Ref        — content blocks that emerge from inside the book
+ *  SECTION 1 — Hero Slider (Swiper.js + EffectFade)
+ *    • Dynamic slides fetched from /api/slides (falls back to static data)
+ *    • Auto-scroll every 5 s, manual prev/next, dot pagination
+ *    • Gradient fade-to-background at bottom, seamlessly leading into book
+ *
+ *  SECTION 2 — Scroll-Driven Book (GSAP ScrollTrigger)
+ *    • Closed book appears centered as slider scrolls away
+ *    • Scroll → cover opens with 3-D rotateY hinge animation
+ *    • Each additional scroll phase flips to the next page via CSS animation
+ *    • 10 pages total: Table of Contents → Chapters I–X (all inside book UI)
+ *    • Book closes & fades out; remaining sections render below normally
  * ─────────────────────────────────────────────────────────────────────────────
  */
 
@@ -19,6 +22,12 @@ import { Link } from 'react-router-dom'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { useGSAP } from '@gsap/react'
+import { Swiper, SwiperSlide } from 'swiper/react'
+import { Autoplay, Navigation, Pagination, EffectFade } from 'swiper/modules'
+import 'swiper/css'
+import 'swiper/css/navigation'
+import 'swiper/css/pagination'
+import 'swiper/css/effect-fade'
 import {
   ArrowRightIcon,
   MapPinIcon,
@@ -26,656 +35,611 @@ import {
   DocumentTextIcon,
   ShieldCheckIcon,
   UsersIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
 } from '@heroicons/react/24/outline'
-
 
 gsap.registerPlugin(ScrollTrigger)
 
-/* ── Static data ────────────────────────────────────────────────────────────── */
-const quickCards = [
-  { icon: MapPinIcon,              title: 'Know Your RTE',  desc: 'Understand your rights under the RTE Act 2009', href: '/know-your-rte/about', color: '#1A2744' },
-  { icon: MapPinIcon,              title: 'RTE by State',   desc: 'Track compliance scores for all 36 states',      href: '/states',             color: '#E9872B' },
-  { icon: ChatBubbleLeftRightIcon, title: 'Ask a Question', desc: 'Get expert answers from our community',          href: '/community/ask',      color: '#2E7D32' },
-  { icon: DocumentTextIcon,        title: 'Latest News',    desc: 'Stay updated with RTE policy developments',      href: '/news',               color: '#C62828' },
-]
-const heroStats = [
-  { value: 12450, suffix: '+', label: 'Questions Answered' },
-  { value: 3890,  suffix: '+', label: 'Grievances Filed'   },
-  { value: 28,    suffix: '',  label: 'States Covered'     },
-]
-const latestNews = [
-  { id: 1, title: 'Centre Releases Annual RTE Compliance Report 2024–25', state: 'National',      date: 'Mar 10, 2025', category: 'Policy'      },
-  { id: 2, title: 'Kerala Achieves 95% Enrollment Under RTE Provisions',  state: 'Kerala',        date: 'Mar 8, 2025',  category: 'Achievement' },
-  { id: 3, title: 'UP Govt Allocates ₹2,400 Cr for School Infrastructure',state: 'Uttar Pradesh', date: 'Mar 6, 2025',  category: 'Budget'      },
-]
-const recentQuestions = [
-  { id: 1, title: 'Can a private school deny admission to a child from EWS category?', answers: 7,  state: 'Maharashtra' },
-  { id: 2, title: 'What documents are required for RTE admission in Karnataka?',        answers: 4,  state: 'Karnataka'   },
-  { id: 3, title: 'Is a school allowed to charge uniform fees from RTE students?',      answers: 12, state: 'Delhi'       },
-]
-const featuredStates = [
-  { name: 'Kerala',           slug: 'kerala',           score: 91, label: 'Excellent', region: 'South' },
-  { name: 'Himachal Pradesh', slug: 'himachal-pradesh', score: 84, label: 'Good',      region: 'North' },
-  { name: 'Tamil Nadu',       slug: 'tamil-nadu',       score: 79, label: 'Good',      region: 'South' },
-  { name: 'Karnataka',        slug: 'karnataka',        score: 72, label: 'Good',      region: 'South' },
-  { name: 'Maharashtra',      slug: 'maharashtra',      score: 65, label: 'Average',   region: 'West'  },
-  { name: 'Uttar Pradesh',    slug: 'uttar-pradesh',    score: 38, label: 'Poor',      region: 'North' },
-]
-function scoreColor(score) {
-  if (score >= 75) return { bg: 'rgba(46,125,50,0.12)', text: '#2E7D32', bar: '#2E7D32' }
-  if (score >= 50) return { bg: 'rgba(232,135,42,0.14)', text: '#E8872A', bar: '#E8872A' }
-  return { bg: 'rgba(198,40,40,0.12)', text: '#C62828', bar: '#C62828' }
-}
+/* ════════════════════════════════════════════════════════════════════════════
+   STATIC DATA
+════════════════════════════════════════════════════════════════════════════ */
 
-/* ── Animated number counter ────────────────────────────────────────────────── */
-function CountUp({ target, suffix, duration = 1.8 }) {
-  const el = useRef(null)
-  useEffect(() => {
-    const obj = { val: 0 }
-    const tween = gsap.to(obj, {
-      val: target, duration, ease: 'power2.out',
-      onUpdate: () => { if (el.current) el.current.textContent = Math.floor(obj.val).toLocaleString('en-IN') + suffix },
-    })
-    return () => tween.kill()
-  }, [target, suffix, duration])
-  return <span ref={el}>0{suffix}</span>
-}
+/** Fallback slides used when the API is unavailable */
+const FALLBACK_SLIDES = [
+  {
+    id: 1,
+    title: 'Every Child Deserves Quality Education',
+    description:
+      'The Right to Education Act 2009 ensures free and compulsory education for all children between 6 and 14 years across India.',
+    image: 'https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=1600&q=80',
+    cta: { label: 'Know Your Rights', href: '/know-your-rte/about' },
+    tag: 'RTE Act 2009',
+  },
+  {
+    id: 2,
+    title: 'Track Compliance Across All 36 States',
+    description:
+      'Real-time dashboards show how each Indian state is performing on RTE mandates — from enrollment ratios to infrastructure benchmarks.',
+    image: 'https://images.unsplash.com/photo-1524178232363-1fb2b075b655?w=1600&q=80',
+    cta: { label: 'View State Reports', href: '/states' },
+    tag: 'State Compliance',
+  },
+  {
+    id: 3,
+    title: 'Centre Releases Annual RTE Compliance Report 2024–25',
+    description:
+      'A comprehensive national review highlighting progress, gaps, and critical interventions required to meet universal enrollment targets.',
+    image: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=1600&q=80',
+    cta: { label: 'Read Report', href: '/news' },
+    tag: 'Latest News',
+  },
 
-/* ═══════════════════════════════════════════════════════════════════════════════
-   MAIN EXPORT — mobile guard
-═══════════════════════════════════════════════════════════════════════════════ */
+  {
+    id: 5,
+    title: 'Join a Community of Education Advocates',
+    description:
+      'Ask questions, share experiences, and get answers from legal experts and fellow citizens championing every child\'s right to learn.',
+    image: 'https://images.unsplash.com/photo-1529390079861-591de354faf5?w=1600&q=80',
+    cta: { label: 'Join Community', href: '/community/questions' },
+    tag: 'Community',
+  },
+  {
+    id: 6,
+    title: 'Publications, Reports & Policy Updates',
+    description:
+      'Access our curated library of RTE-related judgements, government orders, research publications, and policy amendments.',
+    image: 'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=1600&q=80',
+    cta: { label: 'Browse Library', href: '/blog' },
+    tag: 'Publications',
+  },
+]
+
+/** 10 pages shown inside the open book (index 0 = Contents, 1–10 = Chapters) */
+const BOOK_PAGES = [
+  {
+    id: 'contents',
+    type: 'contents',
+    title: 'Table of Contents',
+    items: [
+      { num: 'I',    label: 'Preliminary — Definitions & Scope' },
+      { num: 'II',   label: 'Right of Children to Free Education' },
+      { num: 'III',  label: 'Duties of Government & Local Authority' },
+      { num: 'IV',   label: 'Responsibilities of Schools' },
+      { num: 'V',    label: 'Curriculum & Evaluation' },
+      { num: 'VI',   label: 'Teachers & Their Qualifications' },
+      { num: 'VII',  label: 'Protection of Rights' },
+      { num: 'VIII', label: 'State Compliance Dashboard' },
+      { num: 'IX',    label: 'Community & Resources' },
+    ],
+  },
+  {
+    id: 'ch1', type: 'chapter', chapter: 'Chapter I', color: '#1A2744',
+    title: 'Preliminary — Definitions & Scope',
+    body: 'The RTE Act 2009 applies to every child in India from age 6 to 14. It defines key terms including "child," "school," "elementary education," "capitation fee," and "screening procedure." Understanding these definitions is the foundation of asserting your rights effectively.',
+    highlight: '6–14 years — the age band where education becomes a fundamental right.',
+    href: '/know-your-rte/about',
+  },
+  {
+    id: 'ch2', type: 'chapter', chapter: 'Chapter II', color: '#E9872B',
+    title: 'Right of Children to Free Education',
+    body: 'Every child has the right to free and compulsory elementary education in a neighbourhood school. No child shall be required to pay any fee, charge, or expense that would prevent them from pursuing and completing elementary education.',
+    highlight: '25% reservation — all private unaided schools must admit EWS/DG children.',
+    href: '/know-your-rte/rights',
+  },
+  {
+    id: 'ch3', type: 'chapter', chapter: 'Chapter III', color: '#2E7D32',
+    title: 'Duties of Government & Local Authority',
+    body: 'Appropriate governments and local bodies must ensure free education, maintain school infrastructure, provide trained teachers, and prevent child labour. They are also responsible for special training provisions for out-of-school children.',
+    highlight: 'Local bodies must open a neighbourhood school within 3 km of every habitation.',
+    href: '/states',
+  },
+  {
+    id: 'ch4', type: 'chapter', chapter: 'Chapter IV', color: '#C62828',
+    title: 'Responsibilities of Schools',
+    body: 'Schools must admit children without screening procedures or capitation fees, provide a safe and enabling environment, maintain Pupil-Teacher Ratios as specified, and ensure no child is subjected to physical or mental harassment.',
+    highlight: 'PTR must not exceed 30:1 in any elementary classroom.',
+    href: '/states',
+  },
+  {
+    id: 'ch5', type: 'chapter', chapter: 'Chapter V', color: '#1A2744',
+    title: 'Curriculum & Evaluation',
+    body: "The curriculum should foster a child's all-round development with a focus on activity-based learning. No child shall be held back or expelled until completion of elementary education. The National Curriculum Framework guides all academic standards.",
+    highlight: 'No detention policy applies throughout Class 1–8.',
+    href: '/blog',
+  },
+  {
+    id: 'ch6', type: 'chapter', chapter: 'Chapter VI', color: '#5C35A0',
+    title: 'Teachers & Their Qualifications',
+    body: 'All teachers must possess minimum qualifications laid down by the academic authority. States must ensure adequate training programmes, and vacant positions must be filled within a prescribed timeline to maintain quality teaching standards.',
+    highlight: 'Teachers must complete prescribed training within 5 years of appointment.',
+    href: '/know-your-rte/about',
+  },
+  {
+    id: 'ch7', type: 'chapter', chapter: 'Chapter VII', color: '#E9872B',
+    title: 'Protection of Rights',
+    body: 'Any person who contravenes the Act — by demanding capitation fees, conducting screening, or employing unqualified teachers — is liable to fines and penalties. The NCPCR acts as the national oversight body for enforcement.',
+    highlight: 'Fines up to ₹25,000 first offence; ₹50,000 for repeated violations.',
+    href: '/grievances/file',
+  },
+  {
+    id: 'ch8', type: 'chapter', chapter: 'Chapter VIII', color: '#2E7D32',
+    title: 'State Compliance Dashboard',
+    body: 'Track how every Indian state is implementing the RTE Act in real time. Our compliance scores cover infrastructure, teacher deployment, enrollment ratios, and financial allocation — giving you the full picture at a glance.',
+    highlight: 'Kerala leads at 91% compliance; 8 states remain below 50%.',
+    href: '/states',
+  },
+  {
+    id: 'ch9', type: 'chapter', chapter: 'Chapter IX', color: '#1A2744',
+    title: 'Community & Resources',
+    body: 'Join thousands of parents, educators, and advocates in our community forum. Ask questions, share experiences, read expert blogs, and access our curated library of judgements, government orders, and research reports on child education rights.',
+    highlight: '12,450+ questions answered by our expert community.',
+    href: '/community/questions',
+  },
+]
+
+/* Scroll architecture constants */
+const TOTAL_PHASES = 2 + BOOK_PAGES.length + 1 // 14 phases
+const VH_PER_PHASE = 80                          // 80vh each → 1120vh total
+
+/* ════════════════════════════════════════════════════════════════════════════
+   ROOT EXPORT
+════════════════════════════════════════════════════════════════════════════ */
 export default function BookScrollExperience() {
-  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768)
-  const [reducedMotion] = useState(() => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches)
-
-  useEffect(() => {
-    // Handling resize to update isMobile
-    const handleResize = () => setIsMobile(window.innerWidth < 768)
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [])
-
+  const [isMobile] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth < 768,
+  )
+  const [reducedMotion] = useState(
+    () =>
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+  )
   if (isMobile || reducedMotion) return <StaticHero />
   return <BookScrollExperienceInner />
 }
 
-/* ── Static fallback ────────────────────────────────────────────────────────── */
+/* ── Static mobile / reduced-motion fallback ──────────────────────────────── */
 function StaticHero() {
   return (
-    <>
-      <section style={{ minHeight:'100vh', background:'linear-gradient(160deg,#1A2744 0%,#243356 55%,#1c3a5e 100%)', display:'flex', alignItems:'center', justifyContent:'center', padding:'80px 24px' }}>
-        <div style={{ maxWidth:640, textAlign:'center', color:'white' }}>
-          <div style={{ fontSize:64, marginBottom:24 }}>📖</div>
-          <div style={{ background:'rgba(232,135,42,0.18)', color:'#f0a952', padding:'6px 16px', borderRadius:'99px', fontSize:13, fontWeight:600, display:'inline-block', marginBottom:24 }}>Right to Education Act 2009</div>
-          <h1 style={{ fontFamily:"'Playfair Display',serif", fontSize:'clamp(36px,8vw,60px)', fontWeight:800, lineHeight:1.1, marginBottom:16 }}>
-            <span style={{ color:'white' }}>Understanding Your</span><br/>
-            <span style={{ color:'#E9872B' }}>Right to Education</span>
-          </h1>
-          <p style={{ color:'rgba(255,255,255,0.65)', fontSize:18, marginBottom:32, lineHeight:1.7 }}>Track compliance across 36 states, file grievances, and connect with a community fighting for every child's right to education.</p>
-          <Link to="/search" style={{ display:'block', maxWidth:440, margin:'0 auto', background:'rgba(255,255,255,0.08)', border:'1.5px solid rgba(255,255,255,0.18)', borderRadius:16, padding:'14px 20px', color:'rgba(255,255,255,0.4)', fontSize:14, textDecoration:'none' }}>Search states, news, questions…</Link>
-        </div>
-      </section>
-      <div style={{ padding: '40px 0', borderTop: '1px solid rgba(255,255,255,0.1)', background: '#1A2744' }}>
-        <p className="text-center text-white/40 text-xs">© 2025 Right to Education (RTE) Portal. All rights reserved.</p>
+    <section style={{ minHeight: '100vh', background: 'linear-gradient(160deg,#1A2744 0%,#243356 55%,#1c3a5e 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '80px 24px' }}>
+      <div style={{ maxWidth: 640, textAlign: 'center', color: 'white' }}>
+        <div style={{ fontSize: 64, marginBottom: 24 }}>📖</div>
+        <div style={{ background: 'rgba(232,135,42,0.18)', color: '#f0a952', padding: '6px 16px', borderRadius: 99, fontSize: 13, fontWeight: 600, display: 'inline-block', marginBottom: 24 }}>Right to Education Act 2009</div>
+        <h1 style={{ fontFamily: "'Playfair Display',serif", fontSize: 'clamp(36px,8vw,60px)', fontWeight: 800, lineHeight: 1.1, marginBottom: 16 }}>
+          <span style={{ color: 'white' }}>Understanding Your</span><br />
+          <span style={{ color: '#E9872B' }}>Right to Education</span>
+        </h1>
+        <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: 18, marginBottom: 32, lineHeight: 1.7 }}>Track compliance and connect with a community fighting for every child's right to education.</p>
+        <Link to="/states" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#E9872B', color: 'white', padding: '14px 32px', borderRadius: 14, fontWeight: 700, fontSize: 15, textDecoration: 'none' }}>
+          Explore States <ArrowRightIcon style={{ width: 16, height: 16 }} />
+        </Link>
       </div>
-    </>
+    </section>
   )
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════════
-   ANIMATED INNER COMPONENT
-═══════════════════════════════════════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════════════════════════════════
+   MAIN ANIMATED COMPONENT
+════════════════════════════════════════════════════════════════════════════ */
 function BookScrollExperienceInner() {
-  const scrollContainerRef = useRef(null)
-  const stickyPanelRef     = useRef(null)
-  const bookWrapRef        = useRef(null)
-  const bookBodyRef        = useRef(null)
-  const bookCoverRef       = useRef(null)
-  const lightBurstRef      = useRef(null)
-  const block1Ref          = useRef(null)
-  const block2Ref          = useRef(null)
-  const block3Ref          = useRef(null)
-  const block4Ref          = useRef(null)
-  const block5Ref          = useRef(null)
-  const block6Ref          = useRef(null)
-  const block7Ref          = useRef(null)
-  const progressRef        = useRef(null)
-  const scrollHintRef      = useRef(null)
+  /* ── Slide data (dynamic, falls back to static) ─────────────────────── */
+  const [slides, setSlides] = useState(FALLBACK_SLIDES)
+  useEffect(() => {
+    const ctrl = new AbortController()
+    fetch(`${import.meta.env.VITE_API_URL || ''}/api/slides`, { signal: ctrl.signal })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (Array.isArray(data) && data.length > 0) setSlides(data) })
+      .catch(() => {})
+    return () => ctrl.abort()
+  }, [])
 
+  /* ── Refs ─────────────────────────────────────────────────────────────── */
+  const outerRef        = useRef(null)
+  const bookSectionRef  = useRef(null)
+  const stickyPanelRef  = useRef(null)
+  const bookBodyRef     = useRef(null)
+  const bookCoverRef    = useRef(null)
+  const lightBurstRef   = useRef(null)
+  const progressRef     = useRef(null)
+  const scrollHintRef   = useRef(null)
+  const prevBtnRef      = useRef(null)
+  const nextBtnRef      = useRef(null)
+
+  /* ── Current page shown inside book ────────────────────────────────── */
+  const [currentPage, setCurrentPage] = useState(-1)
+
+  /* ── GSAP master timeline ────────────────────────────────────────────── */
   useGSAP(() => {
-    const container = scrollContainerRef.current
-    const panel     = stickyPanelRef.current
-    const bookWrap  = bookWrapRef.current
-    const bookBody  = bookBodyRef.current
-    const cover     = bookCoverRef.current
-    const light     = lightBurstRef.current
-    const progressBar = progressRef.current
-    const scrollHint  = scrollHintRef.current
-    if (!container || !panel) return
+    const bookSection = bookSectionRef.current
+    const panel       = stickyPanelRef.current
+    const bookBody    = bookBodyRef.current
+    const cover       = bookCoverRef.current
+    const light       = lightBurstRef.current
+    const bar         = progressRef.current
+    const hint        = scrollHintRef.current
+    if (!bookSection || !panel) return
 
-    const vw = window.innerWidth
+    /* Idle breathing pulse before scroll starts */
+    const breathe = gsap.to(bookBody, { scale: 1.018, duration: 1.8, yoyo: true, repeat: -1, ease: 'sine.inOut' })
 
-    /* ── Phase 1: breathing pulse ──────────────────────────────────────────── */
-    const breathe = gsap.to(bookBody, {
-      scale: 1.015,
-      duration: 1.5,
-      yoyo: true,
-      repeat: -1,
-      ease: 'sine.inOut',
-    })
+    /* Initial states */
+    gsap.set(bookBody, { opacity: 0, y: 70, scale: 0.82, rotateX: 14 })
+    gsap.set(cover,    { rotateY: 0 })
+    gsap.set(light,    { opacity: 0 })
+    gsap.set(bar,      { scaleX: 0, transformOrigin: 'left center' })
 
-    /* ── Initial states for content blocks ─────────────────────────────────── */
-    const FROM = {
-      x: 0,
-      y: 30,
-      scale: 0.9,
-      opacity: 0,
-      pointerEvents: 'none',
-      force3D: true,
-    }
-    gsap.set([block1Ref.current, block2Ref.current, block3Ref.current, block4Ref.current, block5Ref.current, block6Ref.current, block7Ref.current], FROM)
-
-    /* ── Master scrollTrigger timeline ─────────────────────────────────────── */
     const tl = gsap.timeline({
       scrollTrigger: {
-        trigger: container,
+        trigger: panel,
         start: 'top top',
-        end: '+=750%',
-        pin: panel,
-        scrub: 0.5,
+        end: `+=${TOTAL_PHASES * VH_PER_PHASE}%`,
+        pin: true,
+        scrub: 1,
         anticipatePin: 1,
         invalidateOnRefresh: true,
+        onUpdate(self) {
+          const p          = self.progress
+          const openStart  = 1 / TOTAL_PHASES
+          const openEnd    = 2.5 / TOTAL_PHASES
+          const closeStart = (TOTAL_PHASES - 1) / TOTAL_PHASES
+          if (p < openEnd || p >= closeStart) {
+            setCurrentPage(-1)
+          } else {
+            const span = closeStart - openEnd
+            const rel  = (p - openEnd) / span
+            setCurrentPage(Math.min(Math.floor(rel * BOOK_PAGES.length), BOOK_PAGES.length - 1))
+          }
+        },
       },
-      onStart: () => breathe.pause(),
-      onReverseComplete: () => breathe.play()
+      onStart:          () => breathe.pause(),
+      onReverseComplete:() => breathe.play(),
     })
 
-    /* ── PHASE 2 — book slides left + cover opens ───── 0 → 2.5 ─────────── */
-    tl
-      .to(bookWrap, { x: -(vw * 0.28), duration: 2.5, ease: 'power2.inOut' }, 0)
-      .to(bookBody, { rotateX: 3, duration: 2.5, ease: 'power2.inOut' }, 0)
-      .to(light, { opacity: 0.75, duration: 0.8, ease: 'power2.out' }, 0.8)
-      .to(light, { opacity: 0, duration: 1.0, ease: 'power2.in' }, 1.7)
-      .to(cover, { rotateY: -160, duration: 2.0, ease: 'power2.inOut' }, 0.3)
-      .to(progressBar, { scaleX: 1, duration: 10, ease: 'none' }, 0)
-      .to(scrollHint, { opacity: 0, y: -20, duration: 0.5 }, 0.2)
+    /* Phase 1 — book rises */
+    tl.to(bookBody, { opacity: 1, y: 0, scale: 1, rotateX: 5, duration: 1, ease: 'power3.out' }, 0)
+    tl.to(hint, { opacity: 0, y: -18, duration: 0.4 }, 0.2)
 
-    /* ── PHASE 3 — content emerges/retracts ───── 2.5 → 8.2 ─────────────── */
-    const VISIBLE = { y: 0, scale: 1, opacity: 1, pointerEvents: 'auto', duration: 0.6, ease: 'power2.out' }
-    const RETRACT = { y: -40, scale: 0.9, opacity: 0, pointerEvents: 'none', duration: 0.4, ease: 'power2.in' }
-    
-    // Non-overlapping block transitions
-    tl.to(block1Ref.current, { ...VISIBLE }, 2.5)
-    tl.to(block1Ref.current, { ...RETRACT }, 3.8)
-    
-    tl.to(block2Ref.current, { ...VISIBLE }, 3.9)
-    tl.to(block2Ref.current, { ...RETRACT }, 5.2)
-    
-    tl.to(block3Ref.current, { ...VISIBLE }, 5.3)
-    tl.to(block3Ref.current, { ...RETRACT }, 6.6)
-    
-    tl.to(block4Ref.current, { ...VISIBLE }, 6.7)
-    tl.to(block4Ref.current, { ...RETRACT }, 7.9)
+    /* Phase 2 — cover opens */
+    tl.to(cover, { rotateY: -165, duration: 1.6, ease: 'power2.inOut' }, 1)
+    tl.to(light,  { opacity: 0.72, duration: 0.6, ease: 'power2.out'  }, 1.3)
+    tl.to(light,  { opacity: 0,    duration: 0.7, ease: 'power2.in'   }, 2.1)
 
-    tl.to(block5Ref.current, { ...VISIBLE }, 8.0)
-    tl.to(block5Ref.current, { ...RETRACT }, 9.2)
+    /* Progress bar across full duration */
+    tl.to(bar, { scaleX: 1, duration: TOTAL_PHASES, ease: 'none' }, 0)
 
-    tl.to(block6Ref.current, { ...VISIBLE }, 9.3)
-    tl.to(block6Ref.current, { ...RETRACT }, 10.5)
+    /* Phase final — book closes & fades */
+    tl.to(cover,    { rotateY: 0, duration: 1, ease: 'power2.inOut' }, TOTAL_PHASES - 1.5)
+    tl.to(bookBody, { scale: 0.5, opacity: 0, y: 90, duration: 1, ease: 'power2.in' }, TOTAL_PHASES - 0.9)
 
-    tl.to(block7Ref.current, { ...VISIBLE }, 10.6)
-    tl.to(block7Ref.current, { ...RETRACT }, 11.8)
-
-    /* ── PHASE 4 — book closes and disappears ───── 11.8 → 13.5 ───────────── */
-    tl.to(cover, { rotateY: 0, duration: 1.0, ease: 'power2.inOut' }, 12.0)
-    tl.to(bookBody, { scale: 0.4, opacity: 0, y: 100, duration: 1.0, ease: 'power2.in' }, 12.7)
-    tl.to(bookWrap, { opacity: 0, duration: 0.3 }, 13.4)
-
-    /* ── Refresh / Resize handlers ────────────────────────────────────────── */
-    const refreshTimer = setTimeout(() => ScrollTrigger.refresh(), 200)
+    const t = setTimeout(() => ScrollTrigger.refresh(), 300)
     document.fonts?.ready?.then(() => ScrollTrigger.refresh())
     const onResize = () => ScrollTrigger.refresh()
     window.addEventListener('resize', onResize)
-
     return () => {
       breathe.kill()
-      clearTimeout(refreshTimer)
+      clearTimeout(t)
       window.removeEventListener('resize', onResize)
-      ScrollTrigger.getAll().forEach(t => t.kill())
+      ScrollTrigger.getAll().forEach(st => st.kill())
     }
-  }, { scope: scrollContainerRef, dependencies: [] })
+  }, { scope: outerRef, dependencies: [] })
 
-
-  /* Page stack slices */
-  const pageSlices = Array.from({ length: 8 }, (_, i) => (
+  /* Page-edge slices (right-side page stack illusion) */
+  const pageSlices = Array.from({ length: 10 }, (_, i) => (
     <div key={i} style={{
-      width: 7, height: 492,
-      background: i % 2 === 0 ? '#fffdf5' : '#f5ede0',
-      border: '0.5px solid rgba(200,180,140,0.5)',
+      width: 6, height: 538,
+      background: i % 2 === 0 ? '#fffdf5' : '#f4ecdc',
+      border: '0.5px solid rgba(200,175,130,0.4)',
       borderRadius: '0 2px 2px 0',
-      position: 'absolute', top: 4,
-      right: -(8 + i * 7),
+      position: 'absolute', top: 4, right: -(8 + i * 6),
       zIndex: 2 - i,
+      transition: 'transform 0.3s',
+      transform: currentPage >= 0 ? `translateX(${Math.min(currentPage * 1.3, 12)}px)` : 'none',
     }} />
   ))
 
   return (
-    <>
-      <div
-        ref={scrollContainerRef}
-        style={{ position: 'relative', height: '850vh', background: '#F8F7F6' }}
-      >
-      {/*
-        stickyPanel is pinned by ScrollTrigger (pin: panel in the config above).
-        Do NOT give it position:sticky in CSS — ScrollTrigger will add its own
-        inline styles for pinning.
-      */}
-      <div
-        ref={stickyPanelRef}
-        style={{
-          width: '100%',
-          height: '100vh',
-          overflow: 'hidden',
-          background: '#F8F7F6',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          position: 'relative',
-        }}
-      >
-        {/* ── Progress Bar ──────────────────────────────────────────────── */}
-        <div style={{
-          position: 'absolute', bottom: 0, left: 0, width: '100%', height: 3,
-          background: 'rgba(26,39,68,0.06)', zIndex: 100
-        }}>
-          <div ref={progressRef} style={{
-            width: '100%', height: '100%', background: '#E9872B',
-            transformOrigin: 'left center', transform: 'scaleX(0)',
-          }} />
-        </div>
+    <div ref={outerRef} style={{ position: 'relative' }}>
 
-        {/* ── Scroll Hint ────────────────────────────────────────────────── */}
-        <div ref={scrollHintRef} style={{
-          position: 'absolute', bottom: 40, left: '50%', transform: 'translateX(-50%)',
-          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
-          opacity: 0.8, zIndex: 50, pointerEvents: 'none',
-        }}>
-          <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '2px', color: '#1A2744' }}>Scroll to Explore</span>
-          <div style={{ width: 1, height: 40, background: 'linear-gradient(180deg, #1A2744 0%, transparent 100%)' }} />
-        </div>
-        {/* ── Book (perspective wrapper then 3D body) ─────────────────────── */}
-        {/*
-          bookWrapRef is positioned at the center of stickyPanel. GSAP will
-          translate it left by animating 'x'. We must NOT use CSS transform here
-          — instead we use left/top + margin to center it, and let GSAP own 'x'.
-        */}
-        <div
-          ref={bookWrapRef}
-          style={{
-            perspective: '1200px',
-            perspectiveOrigin: '50% 50%',
-            willChange: 'transform',
-            /* centering via absolute + margin trick so GSAP can own translateX */
-            position: 'absolute',
-            left: '50%',
-            top: '50%',
-            marginLeft: -190,  /* half of book width 380 */
-            marginTop: -250,   /* half of book height 500 */
-          }}
-        >
-          <div
-            ref={bookBodyRef}
+      {/* ══════════════════════════════════════════════════════════════════
+          SECTION 1 — HERO SLIDER
+      ══════════════════════════════════════════════════════════════════ */}
+      <section style={{ position: 'relative', height: '100vh', overflow: 'hidden' }}>
+
+        {/* Custom nav arrows */}
+        {[{ ref: prevBtnRef, side: 'left',  Icon: ChevronLeftIcon  },
+          { ref: nextBtnRef, side: 'right', Icon: ChevronRightIcon }].map(({ ref, side, Icon }) => (
+          <button key={side} ref={ref} aria-label={`${side === 'left' ? 'Previous' : 'Next'} slide`}
             style={{
-              position: 'relative',
-              width: 380,
-              height: 500,
-              transformStyle: 'preserve-3d',
-              transform: 'rotateX(10deg)',
-              willChange: 'transform',
-              /* box-shadow instead of filter:drop-shadow — drop-shadow recalculates per frame */
-              boxShadow: '0 40px 60px rgba(26,39,68,0.35)',
+              position: 'absolute', [side]: 24, top: '50%', transform: 'translateY(-50%)',
+              zIndex: 20, width: 50, height: 50, borderRadius: '50%',
+              background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(12px)',
+              border: '1.5px solid rgba(255,255,255,0.25)', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'white', transition: 'background 0.2s, transform 0.2s',
             }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(233,135,43,0.75)'; e.currentTarget.style.transform = 'translateY(-50%) scale(1.08)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.12)'; e.currentTarget.style.transform = 'translateY(-50%) scale(1)' }}
           >
-            {/* Inner pages (visible when cover opens) */}
-            <div style={{
-              position: 'absolute', inset: 0,
-              background: 'linear-gradient(180deg,#fffdf7,#f9f5ec)',
-              borderRadius: '2px 8px 8px 2px',
-              padding: '50px 40px',
-              display: 'flex', flexDirection: 'column', gap: 14
-            }}>
-              <div style={{ fontFamily:"'Playfair Display',serif", fontSize:10, fontWeight:700, color:'#1A2744', textTransform:'uppercase', letterSpacing:1, marginBottom:4, opacity:0.6 }}>Chapter I</div>
-              <div style={{ width: '85%', height: 2, background: 'rgba(26,39,68,0.15)', borderRadius: 1 }} />
-              <div style={{ width: '90%', height: 2, background: 'rgba(26,39,68,0.12)', borderRadius: 1 }} />
-              <div style={{ width: '75%', height: 2, background: 'rgba(26,39,68,0.12)', borderRadius: 1 }} />
-              <div style={{ width: '90%', height: 2, background: 'rgba(26,39,68,0.12)', borderRadius: 1 }} />
-              <div style={{ width: '65%', height: 2, background: 'rgba(26,39,68,0.12)', borderRadius: 1 }} />
-              
-              <div style={{ marginTop: 24, fontFamily:"'Playfair Display',serif", fontSize:10, fontWeight:700, color:'#1A2744', textTransform:'uppercase', letterSpacing:1, marginBottom:4, opacity:0.6 }}>Chapter II</div>
-              <div style={{ width: '90%', height: 2, background: 'rgba(26,39,68,0.15)', borderRadius: 1 }} />
-              <div style={{ width: '80%', height: 2, background: 'rgba(26,39,68,0.12)', borderRadius: 1 }} />
-              <div style={{ width: '95%', height: 2, background: 'rgba(26,39,68,0.12)', borderRadius: 1 }} />
+            <Icon style={{ width: 22, height: 22 }} />
+          </button>
+        ))}
+
+        <Swiper
+          modules={[Autoplay, Navigation, Pagination, EffectFade]}
+          effect="fade" speed={1000}
+          autoplay={{ delay: 5500, disableOnInteraction: false, pauseOnMouseEnter: true }}
+          loop
+          navigation={{ prevEl: prevBtnRef.current, nextEl: nextBtnRef.current }}
+          pagination={{ clickable: true, bulletClass: 'rte-bullet', bulletActiveClass: 'rte-bullet-active' }}
+          onBeforeInit={swiper => {
+            swiper.params.navigation.prevEl = prevBtnRef.current
+            swiper.params.navigation.nextEl = nextBtnRef.current
+          }}
+          style={{ width: '100%', height: '100%' }}
+        >
+          {slides.map(slide => (
+            <SwiperSlide key={slide.id}>
+              <HeroSlide slide={slide} />
+            </SwiperSlide>
+          ))}
+        </Swiper>
+
+        {/* Scroll-down indicator */}
+        <div style={{ position: 'absolute', bottom: 48, left: '50%', transform: 'translateX(-50%)', zIndex: 20, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, animation: 'scrollBounce 2s ease-in-out infinite' }}>
+          <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '2.5px', color: 'rgba(255,255,255,0.6)' }}>Scroll to Explore</span>
+          <div style={{ width: 1, height: 42, background: 'linear-gradient(180deg,rgba(255,255,255,0.65) 0%,transparent 100%)' }} />
+        </div>
+
+        {/* Gradient fade into book section */}
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 220, background: 'linear-gradient(to bottom,transparent,#F8F7F6)', zIndex: 10, pointerEvents: 'none' }} />
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════════════
+          SECTION 2 — SCROLL-DRIVEN BOOK
+      ══════════════════════════════════════════════════════════════════ */}
+      <div ref={bookSectionRef} style={{ position: 'relative', background: '#F8F7F6' }}>
+
+        {/* Pinned panel */}
+        <div ref={stickyPanelRef} style={{ width: '100%', height: '100vh', overflow: 'hidden', background: 'radial-gradient(ellipse at 50% 65%,#EDE4D5 0%,#F8F7F6 68%)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+
+          {/* Parchment noise overlay */}
+          <div style={{ position: 'absolute', inset: 0, opacity: 0.4, backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E\")", pointerEvents: 'none', zIndex: 0 }} />
+
+          {/* Progress bar */}
+          <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: 3, background: 'rgba(26,39,68,0.07)', zIndex: 100 }}>
+            <div ref={progressRef} style={{ width: '100%', height: '100%', background: 'linear-gradient(90deg,#E9872B,#f0a84a)', transformOrigin: 'left center', transform: 'scaleX(0)' }} />
+          </div>
+
+          {/* Scroll hint */}
+          <div ref={scrollHintRef} style={{ position: 'absolute', bottom: 44, left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, opacity: 0.7, zIndex: 50, pointerEvents: 'none' }}>
+            <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '2.5px', color: '#1A2744' }}>Keep Scrolling</span>
+            <div style={{ width: 1, height: 40, background: 'linear-gradient(180deg,#1A2744 0%,transparent 100%)' }} />
+          </div>
+
+          {/* Page indicator dots */}
+          {currentPage >= 0 && (
+            <div style={{ position: 'absolute', top: 28, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 5, zIndex: 60 }}>
+              {BOOK_PAGES.map((_, i) => (
+                <div key={i} style={{ width: i === currentPage ? 22 : 6, height: 6, borderRadius: 3, background: i === currentPage ? '#E9872B' : 'rgba(26,39,68,0.18)', transition: 'all 0.35s ease' }} />
+              ))}
             </div>
+          )}
 
-            {/* Page stack on right edge */}
-            <div style={{ position: 'absolute', inset: 0, overflow: 'visible', zIndex: 2 }}>
-              {pageSlices}
+          {/* Chapter label above book */}
+          {currentPage >= 0 && BOOK_PAGES[currentPage] && (
+            <div style={{ position: 'absolute', top: 60, left: '50%', transform: 'translateX(-50%)', zIndex: 60, textAlign: 'center', whiteSpace: 'nowrap' }}>
+              <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '2px', color: BOOK_PAGES[currentPage].color || '#1A2744', opacity: 0.85 }}>
+                {BOOK_PAGES[currentPage].chapter || 'Contents'}
+              </span>
             </div>
+          )}
 
-            {/* Light burst (from inside book) */}
-            <div
-              ref={lightBurstRef}
-              style={{
-                position: 'absolute', inset: 0,
-                borderRadius: '2px 8px 8px 2px',
-                background: 'radial-gradient(ellipse at 15% 50%, rgba(255,220,100,0.95) 0%, rgba(255,180,40,0.55) 40%, transparent 72%)',
-                opacity: 0,
-                willChange: 'opacity',
-                pointerEvents: 'none',
-                zIndex: 5,
-              }}
-            />
+          {/* ── THE BOOK ─────────────────────────────────────────────── */}
+          <div style={{ perspective: '1400px', perspectiveOrigin: '50% 45%', position: 'relative', zIndex: 10 }}>
+            <div ref={bookBodyRef} style={{ position: 'relative', width: 440, height: 560, transformStyle: 'preserve-3d', transform: 'rotateX(10deg)', willChange: 'transform', boxShadow: '0 55px 90px rgba(26,39,68,0.36), 0 20px 32px rgba(26,39,68,0.18)', opacity: 0 }}>
 
-            {/* Bookmark ribbon */}
-            <div style={{
-              position: 'absolute', bottom: -28, right: 60,
-              width: 14, height: 48,
-              background: 'linear-gradient(180deg,#E9872B,#c96d1a)',
-              clipPath: 'polygon(0 0, 100% 0, 100% 85%, 50% 100%, 0 85%)',
-              zIndex: 11,
-            }} />
+              {/* Inner pages (visible when cover open) */}
+              <BookInner currentPage={currentPage} />
 
-            {/* ── Cover (rotates on left hinge) ─────────────────────────── */}
-            <div
-              ref={bookCoverRef}
-              style={{
-                position: 'absolute', inset: 0,
-                background: '#1A2744',
-                borderRadius: '2px 8px 8px 2px',
-                transformOrigin: 'left center',
-                transformStyle: 'preserve-3d',
-                willChange: 'transform',
-                overflow: 'hidden',
-                zIndex: 10,
-              }}
-            >
-              {/* Spine */}
-              <div style={{ position:'absolute', top:0, left:0, width:28, height:'100%', background:'#0A192F', borderRadius:'4px 0 0 4px' }} />
+              {/* Right-edge page slices */}
+              <div style={{ position: 'absolute', inset: 0, overflow: 'visible', zIndex: 2 }}>{pageSlices}</div>
 
-              {/* Embossed border */}
-              <div style={{ position:'absolute', inset:12, border:'1.5px solid rgba(233,135,43,0.35)', borderRadius:4, pointerEvents:'none' }} />
+              {/* Light burst */}
+              <div ref={lightBurstRef} style={{ position: 'absolute', inset: 0, borderRadius: '2px 8px 8px 2px', background: 'radial-gradient(ellipse at 12% 50%,rgba(255,225,110,0.92) 0%,rgba(255,185,45,0.48) 42%,transparent 70%)', opacity: 0, pointerEvents: 'none', zIndex: 6 }} />
 
-              {/* Decorative top bar */}
-              <div style={{ position:'absolute', top:28, left:44, right:16, height:2, background:'rgba(233,135,43,0.4)', borderRadius:1 }} />
+              {/* Bookmark */}
+              <div style={{ position: 'absolute', bottom: -32, right: 80, width: 16, height: 56, background: 'linear-gradient(180deg,#E9872B,#c56d1a)', clipPath: 'polygon(0 0,100% 0,100% 84%,50% 100%,0 84%)', zIndex: 11, boxShadow: '2px 4px 14px rgba(26,39,68,0.22)' }} />
 
-              {/* Cover text */}
-              <div style={{
-                position:'absolute', inset:0,
-                display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center',
-                textAlign:'center', padding:'40px 20px 40px 44px', gap:8,
-              }}>
-                <div style={{ width:36, height:36, borderRadius:'50%', border:'1.5px solid rgba(233,135,43,0.35)', display:'flex', alignItems:'center', justifyContent:'center', marginBottom:10 }}>
-                  <div style={{ width:16, height:16, borderRadius:'50%', background:'rgba(233,135,43,0.25)' }} />
-                </div>
+              {/* Cover */}
+              <div ref={bookCoverRef} style={{ position: 'absolute', inset: 0, background: 'linear-gradient(140deg,#1c2d50 0%,#0d1a35 100%)', borderRadius: '2px 8px 8px 2px', transformOrigin: 'left center', transformStyle: 'preserve-3d', willChange: 'transform', overflow: 'hidden', zIndex: 10, boxShadow: 'inset -6px 0 24px rgba(0,0,0,0.45)' }}>
+                {/* Spine */}
+                <div style={{ position: 'absolute', top: 0, left: 0, width: 34, height: '100%', background: 'linear-gradient(90deg,#050d1f,#0A192F)', borderRadius: '4px 0 0 4px' }} />
+                {/* Embossed border */}
+                <div style={{ position: 'absolute', inset: 16, border: '1.5px solid rgba(233,135,43,0.28)', borderRadius: 6, pointerEvents: 'none' }} />
+                {/* Bars */}
+                <div style={{ position: 'absolute', top: 32, left: 52, right: 20, height: 2, background: 'rgba(233,135,43,0.42)', borderRadius: 1 }} />
+                <div style={{ position: 'absolute', bottom: 32, left: 52, right: 20, height: 2, background: 'rgba(233,135,43,0.42)', borderRadius: 1 }} />
 
-                <span style={{ fontFamily:"'Playfair Display',serif", fontSize:22, fontWeight:900, color:'#E9872B', letterSpacing:'0.5px', lineHeight:1.25, textTransform:'uppercase' }}>
-                  Right to<br/>Education
-                </span>
-
-                <div style={{ width:48, height:1.5, background:'rgba(233,135,43,0.4)', margin:'6px 0' }} />
-
-                <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:11, fontWeight:600, color:'rgba(255,255,255,0.5)', letterSpacing:'2.5px', textTransform:'uppercase' }}>
-                  RTE Act 2009
-                </span>
-
-                <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:14 }}>
-                  <div style={{ width:18, height:1, background:'rgba(233,135,43,0.35)' }} />
-                  <div style={{ width:4, height:4, borderRadius:'50%', background:'rgba(233,135,43,0.55)' }} />
-                  <div style={{ width:18, height:1, background:'rgba(233,135,43,0.35)' }} />
+                {/* Cover content */}
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '52px 24px 52px 54px', gap: 10 }}>
+                  <div style={{ width: 54, height: 54, borderRadius: '50%', border: '1.5px solid rgba(233,135,43,0.38)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(233,135,43,0.18)', border: '1px solid rgba(233,135,43,0.32)' }} />
+                  </div>
+                  <span style={{ fontFamily: "'Playfair Display',serif", fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.38)', letterSpacing: '3px', textTransform: 'uppercase' }}>Government of India</span>
+                  <div style={{ width: 40, height: 1, background: 'rgba(233,135,43,0.32)', margin: '4px 0' }} />
+                  <span style={{ fontFamily: "'Playfair Display',serif", fontSize: 28, fontWeight: 900, color: '#E9872B', letterSpacing: '0.5px', lineHeight: 1.2, textTransform: 'uppercase' }}>Right to<br/>Education</span>
+                  <div style={{ width: 60, height: 2, background: 'rgba(233,135,43,0.52)', margin: '6px 0' }} />
+                  <span style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.52)', letterSpacing: '2.5px', textTransform: 'uppercase' }}>RTE Act 2009</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 20 }}>
+                    <div style={{ width: 24, height: 1, background: 'rgba(233,135,43,0.28)' }} />
+                    <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'rgba(233,135,43,0.5)' }} />
+                    <div style={{ width: 24, height: 1, background: 'rgba(233,135,43,0.28)' }} />
+                  </div>
                 </div>
               </div>
-
-              {/* Bottom bar */}
-              <div style={{ position:'absolute', bottom:28, left:44, right:16, height:2, background:'rgba(233,135,43,0.4)', borderRadius:1 }} />
             </div>
           </div>
         </div>
+      </div>
 
-        {/* ── RIGHT content panel — 55% width, right-aligned ─────────────── */}
-        <div style={{
-          position: 'absolute',
-          top: 0, right: 0,
-          width: '55%', height: '100%',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          padding: '40px 48px',
-          overflow: 'hidden',
-        }}>
-          {/* Subtle backdrop glow */}
-          <div style={{
-            position: 'absolute', top: '50%', left: '50%',
-            width: '120%', height: '120%',
-            background: 'radial-gradient(circle at center, rgba(233,135,43,0.03) 0%, transparent 70%)',
-            transform: 'translate(-50%, -50%)',
-            pointerEvents: 'none',
-          }} />
-          {/* ─── Block 1 — Headline + CTA ──────────────────────────────── */}
-          <div ref={block1Ref} style={{ position:'absolute', width:'100%', maxWidth:580, willChange:'transform,opacity' }}>
-            <div style={{ display:'inline-block', background:'rgba(233,135,43,0.15)', color:'#c97220', padding:'5px 16px', borderRadius:99, fontSize:12, fontWeight:700, letterSpacing:'1px', textTransform:'uppercase', marginBottom:20 }}>
-              Right to Education Act 2009
-            </div>
-            <h1 style={{ fontFamily:"'Playfair Display',serif", fontSize:'clamp(32px,4vw,60px)', fontWeight:900, lineHeight:1.1, color:'#1A2744', margin:'0 0 4px' }}>
-              Understanding Your
-            </h1>
-            <h1 style={{ fontFamily:"'Playfair Display',serif", fontSize:'clamp(32px,4vw,60px)', fontWeight:900, lineHeight:1.1, color:'#E9872B', margin:'0 0 20px' }}>
-              Right to Education
-            </h1>
-            <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:16, color:'rgba(40,40,40,0.68)', lineHeight:1.75, marginBottom:28, maxWidth:480 }}>
-              Track compliance across 36 states, file grievances, access legal resources, and connect with a community fighting for every child's right to a free and fair education.
-            </p>
-            {/* Search */}
-            <Link to="/search" style={{ textDecoration:'none', display:'block', maxWidth:480, marginBottom:20 }}>
-              <div style={{ display:'flex', alignItems:'center', gap:12, padding:'14px 20px', background:'white', borderRadius:14, border:'1.5px solid rgba(26,39,68,0.12)', boxShadow:'0 4px 20px rgba(26,39,68,0.08)', cursor:'text' }}>
-                <svg width="18" height="18" fill="none" stroke="rgba(26,39,68,0.35)" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-                <span style={{ color:'rgba(26,39,68,0.35)', fontSize:14, flex:1 }}>Search states, news, questions, documents…</span>
-                <span style={{ fontFamily:'monospace', fontSize:11, color:'rgba(26,39,68,0.25)', border:'1px solid rgba(26,39,68,0.15)', padding:'2px 6px', borderRadius:4 }}>⌘K</span>
-              </div>
-            </Link>
-            {/* CTAs */}
-            <div style={{ display:'flex', gap:12, flexWrap:'wrap' }}>
-              <Link to="/states" className="btn-primary" style={{ fontSize:14, padding:'10px 22px' }}>
-                Explore States <ArrowRightIcon style={{ width:14, height:14 }} />
-              </Link>
-              <Link to="/grievances/file" style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'10px 22px', borderRadius:12, fontWeight:600, fontSize:14, color:'#1A2744', border:'2px solid rgba(26,39,68,0.2)', textDecoration:'none' }}>
-                File a Grievance
-              </Link>
-            </div>
-          </div>
+      {/* ── Global styles ──────────────────────────────────────────────── */}
+      <style>{`
+        @keyframes scrollBounce {
+          0%,100% { transform:translateX(-50%) translateY(0); }
+          50%      { transform:translateX(-50%) translateY(9px); }
+        }
+        .rte-bullet {
+          display:inline-block; width:8px; height:8px; border-radius:50%;
+          background:rgba(255,255,255,0.42); margin:0 4px; cursor:pointer;
+          transition:all .3s;
+        }
+        .rte-bullet-active { width:28px; border-radius:4px; background:#E9872B; }
+        .swiper-pagination  { bottom:62px !important; }
 
-          {/* ─── Block 2 — Quick Access Cards ──────────────────────────── */}
-          <div ref={block2Ref} style={{ position:'absolute', width:'100%', maxWidth:580, willChange:'transform,opacity' }}>
-            <span style={{ fontSize:11, fontWeight:700, letterSpacing:'2px', textTransform:'uppercase', color:'#E9872B' }}>Quick Access</span>
-            <h2 style={{ fontFamily:"'Playfair Display',serif", fontSize:'clamp(22px,3vw,34px)', fontWeight:700, color:'#1A2744', marginTop:6, marginBottom:18 }}>
-              Where would you like to go?
-            </h2>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14 }}>
-              {quickCards.map((card) => (
-                <Link key={card.title} to={card.href} style={{ textDecoration:'none' }}>
-                  <div
-                    style={{ padding:18, background:'white', borderRadius:16, border:'1.5px solid rgba(26,39,68,0.07)', boxShadow:'0 2px 12px rgba(26,39,68,0.06)', cursor:'pointer', transition:'all 0.25s' }}
-                    onMouseEnter={e => { e.currentTarget.style.transform='translateY(-4px)'; e.currentTarget.style.boxShadow='0 12px 32px rgba(26,39,68,0.14)' }}
-                    onMouseLeave={e => { e.currentTarget.style.transform='translateY(0)'; e.currentTarget.style.boxShadow='0 2px 12px rgba(26,39,68,0.06)' }}
-                  >
-                    <div style={{ width:40, height:40, borderRadius:10, background:card.color+'18', display:'flex', alignItems:'center', justifyContent:'center', marginBottom:10 }}>
-                      <card.icon style={{ width:20, height:20, color:card.color }} />
-                    </div>
-                    <p style={{ fontFamily:"'DM Sans',sans-serif", fontWeight:700, fontSize:14, color:'#1A2744', marginBottom:4 }}>{card.title}</p>
-                    <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:12, color:'rgba(50,50,50,0.55)', lineHeight:1.5 }}>{card.desc}</p>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-
-          {/* ─── Block 3 — Statistics ──────────────────────────────────── */}
-          <div ref={block3Ref} style={{ position:'absolute', width:'100%', maxWidth:580, willChange:'transform,opacity' }}>
-            <span style={{ fontSize:11, fontWeight:700, letterSpacing:'2px', textTransform:'uppercase', color:'#E9872B' }}>Impact So Far</span>
-            <h2 style={{ fontFamily:"'Playfair Display',serif", fontSize:'clamp(22px,3vw,34px)', fontWeight:700, color:'#1A2744', marginTop:6, marginBottom:24 }}>
-              Numbers that matter
-            </h2>
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:16 }}>
-              {heroStats.map(s => (
-                <div key={s.label} style={{ padding:'24px 16px', background:'white', borderRadius:16, border:'1.5px solid rgba(26,39,68,0.07)', boxShadow:'0 2px 16px rgba(26,39,68,0.06)', textAlign:'center' }}>
-                  <div style={{ fontFamily:"'Playfair Display',serif", fontSize:'clamp(26px,3vw,40px)', fontWeight:800, color:'#1A2744', lineHeight:1, marginBottom:8 }}>
-                    <CountUp target={s.value} suffix={s.suffix} />
-                  </div>
-                  <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:12, color:'rgba(50,50,50,0.55)', fontWeight:500 }}>{s.label}</p>
-                </div>
-              ))}
-            </div>
-            <div style={{ marginTop:24, display:'flex', gap:12, flexWrap:'wrap' }}>
-              <Link to="/community/questions" className="btn-primary" style={{ fontSize:14, padding:'10px 22px' }}>
-                Browse Questions <ArrowRightIcon style={{ width:14, height:14 }} />
-              </Link>
-              <Link to="/grievances/file" style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'10px 22px', borderRadius:12, fontWeight:600, fontSize:14, color:'#1A2744', border:'2px solid rgba(26,39,68,0.2)', textDecoration:'none' }}>
-                File Grievance
-              </Link>
-            </div>
-          </div>
-
-          {/* ─── Block 4 — Featured Insights + Community Q&A ────────── */}
-          <div ref={block4Ref} style={{ position:'absolute', width:'100%', maxWidth:580, willChange:'transform,opacity', display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
-            {/* News */}
-            <div>
-              <span style={{ fontSize:11, fontWeight:700, letterSpacing:'2px', textTransform:'uppercase', color:'#E9872B', display:'block', marginBottom:8 }}>Latest News</span>
-              <h2 style={{ fontFamily:"'Playfair Display',serif", fontSize:18, fontWeight:700, color:'#1A2744', marginBottom:12 }}>What's happening</h2>
-              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-                {latestNews.map(n => (
-                  <Link key={n.id} to={`/news/${n.id}`} style={{ textDecoration:'none' }}>
-                    <div
-                      style={{ padding:'10px 12px', background:'white', borderRadius:10, border:'1.5px solid rgba(26,39,68,0.07)', transition:'all 0.2s' }}
-                      onMouseEnter={e => { e.currentTarget.style.transform='translateY(-2px)'; e.currentTarget.style.boxShadow='0 8px 24px rgba(26,39,68,0.1)' }}
-                      onMouseLeave={e => { e.currentTarget.style.transform='translateY(0)'; e.currentTarget.style.boxShadow='none' }}
-                    >
-                      <div style={{ display:'flex', gap:5, marginBottom:5 }}>
-                        <span className="badge-navy" style={{ fontSize:9 }}>{n.state}</span>
-                        <span className="badge-saffron" style={{ fontSize:9 }}>{n.category}</span>
-                      </div>
-                      <p style={{ fontSize:11, fontWeight:600, color:'#1A2744', lineHeight:1.45 }}>{n.title}</p>
-                      <p style={{ fontSize:10, color:'rgba(50,50,50,0.45)', marginTop:3 }}>{n.date}</p>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-              <Link to="/news" style={{ display:'inline-flex', alignItems:'center', gap:3, marginTop:8, fontSize:11, fontWeight:700, color:'#E9872B', textDecoration:'none' }}>
-                All news <ArrowRightIcon style={{ width:11, height:11 }} />
-              </Link>
-            </div>
-            {/* Q&A */}
-            <div>
-              <span style={{ fontSize:11, fontWeight:700, letterSpacing:'2px', textTransform:'uppercase', color:'#E9872B', display:'block', marginBottom:8 }}>Community</span>
-              <h2 style={{ fontFamily:"'Playfair Display',serif", fontSize:18, fontWeight:700, color:'#1A2744', marginBottom:12 }}>Recent questions</h2>
-              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-                {recentQuestions.map(q => (
-                  <Link key={q.id} to={`/community/questions/${q.id}`} style={{ textDecoration:'none' }}>
-                    <div
-                      style={{ padding:'10px 12px', background:'white', borderRadius:10, border:'1.5px solid rgba(26,39,68,0.07)', transition:'all 0.2s' }}
-                      onMouseEnter={e => { e.currentTarget.style.transform='translateY(-2px)'; e.currentTarget.style.boxShadow='0 8px 24px rgba(26,39,68,0.1)' }}
-                      onMouseLeave={e => { e.currentTarget.style.transform='translateY(0)'; e.currentTarget.style.boxShadow='none' }}
-                    >
-                      <p style={{ fontSize:11, fontWeight:600, color:'#1A2744', lineHeight:1.45, marginBottom:5 }}>{q.title}</p>
-                      <div style={{ display:'flex', alignItems:'center', gap:6, fontSize:10, color:'rgba(50,50,50,0.45)' }}>
-                        <span className="badge-navy" style={{ fontSize:9 }}>{q.state}</span>
-                        <span style={{ display:'flex', alignItems:'center', gap:2 }}>
-                          <ChatBubbleLeftRightIcon style={{ width:11, height:11 }} /> {q.answers} answers
-                        </span>
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-              <Link to="/community/questions" style={{ display:'inline-flex', alignItems:'center', gap:3, marginTop:8, fontSize:11, fontWeight:700, color:'#E9872B', textDecoration:'none' }}>
-                Browse all <ArrowRightIcon style={{ width:11, height:11 }} />
-              </Link>
-            </div>
-          </div>
-
-          {/* ─── Block 5 — State Compliance ───────────────────────────── */}
-          <div ref={block5Ref} style={{ position:'absolute', width:'100%', maxWidth:580, willChange:'transform,opacity' }}>
-            <span style={{ fontSize:11, fontWeight:700, letterSpacing:'2px', textTransform:'uppercase', color:'#E8872A', display:'block', marginBottom:6 }}>State Compliance</span>
-            <h2 style={{ fontFamily:"'Playfair Display',serif", fontSize:'clamp(22px,3vw,34px)', fontWeight:700, color:'#1A2744', marginTop:6, marginBottom:18 }}>How is your state doing?</h2>
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:12 }}>
-              {featuredStates.slice(0, 4).map(state => {
-                const c = scoreColor(state.score)
-                return (
-                  <Link key={state.slug} to={`/states/${state.slug}`} style={{ textDecoration:'none' }}>
-                    <div className="card-hover" style={{ padding:14, borderRadius:14, border:'1.5px solid rgba(26,39,68,0.08)', background:'white', boxShadow:'0 2px 8px rgba(26,39,68,0.04)' }}>
-                      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:8 }}>
-                        <p style={{ fontWeight:700, color:'#1A2744', fontSize:13 }}>{state.name}</p>
-                        <span style={{ background:c.bg, color:c.text, padding:'2px 8px', borderRadius:99, fontSize:11, fontWeight:800 }}>{state.score}</span>
-                      </div>
-                      <div style={{ height:4, borderRadius:99, background:'rgba(26,39,68,0.07)', overflow:'hidden', marginBottom:6 }}>
-                        <div style={{ height:'100%', width:`${state.score}%`, background:c.bar, borderRadius:99 }} />
-                      </div>
-                      <span style={{ fontSize:10, fontWeight:700, color:c.text, textTransform:'uppercase' }}>{state.label}</span>
-                    </div>
-                  </Link>
-                )
-              })}
-            </div>
-            <Link to="/states" style={{ display:'inline-flex', alignItems:'center', gap:3, marginTop:16, fontSize:11, fontWeight:700, color:'#E9872B', textDecoration:'none' }}>
-              View All 36 States <ArrowRightIcon style={{ width:12, height:12 }} />
-            </Link>
-          </div>
-
-          {/* ─── Block 6 — Features ───────────────────────────────────── */}
-          <div ref={block6Ref} style={{ position:'absolute', width:'100%', maxWidth:580, willChange:'transform,opacity' }}>
-            <h2 style={{ fontFamily:"'Playfair Display',serif", fontSize:'clamp(18px,2.5vw,28px)', fontWeight:700, color:'#1A2744', marginBottom:20 }}>
-              Practical tools to <span style={{ color:'#E8872A' }}>take action</span> today
-            </h2>
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-              {[
-                { icon:MapPinIcon,              title:'State Tracker',    desc:'Real-time compliance scores', href:'/states',               color:'#1A2744' },
-                { icon:ShieldCheckIcon,          title:'File Grievances', desc:'Evidence-based resolution',   href:'/grievances/file',       color:'#E8872A' },
-                { icon:ChatBubbleLeftRightIcon,  title:'Community forum', desc:'Ask experts anything',        href:'/community/questions',   color:'#2E7D32' },
-                { icon:DocumentTextIcon,         title:'RTE library',     desc:'All acts and judgements',     href:'/blog',                  color:'#C62828' },
-              ].map(f => (
-                <Link key={f.title} to={f.href} style={{ textDecoration:'none' }}>
-                  <div className="card-hover" style={{ padding:16, borderRadius:14, border:'1.5px solid rgba(26,39,68,0.07)', background:'white', display:'flex', gap:12, alignItems:'center' }}>
-                    <div style={{ width:40, height:40, borderRadius:10, background:f.color+'18', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                      <f.icon style={{ width:20, height:20, color:f.color }} />
-                    </div>
-                    <div>
-                      <h3 style={{ fontWeight:700, color:'#1A2744', fontSize:13, marginBottom:2 }}>{f.title}</h3>
-                      <p style={{ fontSize:11, color:'rgba(50,50,50,0.55)', lineHeight:1.3 }}>{f.desc}</p>
-                    </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-
-          {/* ─── Block 7 — Final CTA ──────────────────────────────────── */}
-          <div ref={block7Ref} style={{ position:'absolute', width:'100%', maxWidth:580, textAlign:'center', willChange:'transform,opacity' }}>
-            <div style={{ width:60, height:60, borderRadius:'50%', background:'rgba(232,135,42,0.12)', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 20px' }}>
-              <UsersIcon style={{ width:30, height:30, color:'#E8872A' }} />
-            </div>
-            <h2 style={{ fontFamily:"'Playfair Display',serif", fontSize:'clamp(24px,3.5vw,42px)', fontWeight:800, color:'#1A2744', marginBottom:16, lineHeight:1.2 }}>
-              Join thousands of citizens advocating for education.
-            </h2>
-            <p style={{ color:'rgba(50,50,50,0.6)', fontSize:16, marginBottom:28, maxWidth:440, margin:'0 auto 28px' }}>
-              Register for free to ask questions, track grievances, and make your voice heard in the fight for every child's right.
-            </p>
-            <Link to="/register" className="btn-primary" style={{ fontSize:15, padding:'14px 36px', borderRadius:16 }}>
-              Get Started for Free <ArrowRightIcon style={{ width:16, height:16 }} />
-            </Link>
-          </div>
-        </div>{/* /RIGHT content panel */}
-      </div>{/* /stickyPanel */}
-    </div>{/* /scrollContainerRef */}
-
-   
-    </>
+        @keyframes pageIn {
+          from { opacity:0; transform:rotateY(-10deg) translateX(22px); }
+          to   { opacity:1; transform:rotateY(0deg)  translateX(0); }
+        }
+        @keyframes pageOut {
+          from { opacity:1; transform:rotateY(0deg)  translateX(0); }
+          to   { opacity:0; transform:rotateY(10deg) translateX(-22px); }
+        }
+        .page-in  { animation:pageIn  .42s cubic-bezier(.25,.46,.45,.94) forwards; }
+        .page-out { animation:pageOut .32s cubic-bezier(.55,.06,.68,.19) forwards; }
+      `}</style>
+    </div>
   )
 }
 
+/* ════════════════════════════════════════════════════════════════════════════
+   HERO SLIDE — individual carousel slide
+════════════════════════════════════════════════════════════════════════════ */
+function HeroSlide({ slide }) {
+  return (
+    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+      <img src={slide.image} alt={slide.title} loading="lazy" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+      {/* Gradient overlay */}
+      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to right,rgba(8,13,35,0.9) 0%,rgba(8,13,35,0.62) 52%,rgba(8,13,35,0.22) 100%)' }} />
 
+      {/* Content */}
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', padding: '0 88px', maxWidth: 860 }}>
+        <div>
+          <div style={{ display: 'inline-block', background: 'rgba(233,135,43,0.2)', color: '#f5b060', padding: '5px 16px', borderRadius: 99, fontSize: 11, fontWeight: 700, letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: 22, border: '1px solid rgba(233,135,43,0.28)', backdropFilter: 'blur(6px)' }}>
+            {slide.tag}
+          </div>
+          <h1 style={{ fontFamily: "'Playfair Display',serif", fontSize: 'clamp(28px,4vw,60px)', fontWeight: 900, lineHeight: 1.1, color: 'white', margin: '0 0 18px', maxWidth: 680, textShadow: '0 2px 24px rgba(0,0,0,0.28)' }}>
+            {slide.title}
+          </h1>
+          <p style={{ fontFamily: "'DM Sans',sans-serif", fontSize: 'clamp(13px,1.4vw,17px)', color: 'rgba(255,255,255,0.68)', lineHeight: 1.74, marginBottom: 30, maxWidth: 520 }}>
+            {slide.description}
+          </p>
+          {slide.cta && (
+            <Link to={slide.cta.href} style={{ display: 'inline-flex', alignItems: 'center', gap: 10, padding: '12px 28px', borderRadius: 13, background: '#E9872B', color: 'white', fontFamily: "'DM Sans',sans-serif", fontWeight: 700, fontSize: 14, textDecoration: 'none', boxShadow: '0 8px 28px rgba(233,135,43,0.42)', transition: 'transform .2s,box-shadow .2s' }}
+              onMouseEnter={e => { e.currentTarget.style.transform='translateY(-2px)'; e.currentTarget.style.boxShadow='0 14px 36px rgba(233,135,43,0.52)' }}
+              onMouseLeave={e => { e.currentTarget.style.transform='translateY(0)'; e.currentTarget.style.boxShadow='0 8px 28px rgba(233,135,43,0.42)' }}
+            >
+              {slide.cta.label}<ArrowRightIcon style={{ width: 15, height: 15 }} />
+            </Link>
+          )}
+        </div>
+      </div>
+
+      {/* Decorative vertical label */}
+      <div style={{ position: 'absolute', right: 44, top: '50%', transform: 'translateY(-50%) rotate(90deg)', fontSize: 9, fontWeight: 700, letterSpacing: '3px', textTransform: 'uppercase', color: 'rgba(255,255,255,0.28)', whiteSpace: 'nowrap', fontFamily: "'DM Sans',sans-serif" }}>
+        Right to Education Portal — India
+      </div>
+    </div>
+  )
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   BOOK INNER — content pages with flip animation
+════════════════════════════════════════════════════════════════════════════ */
+function BookInner({ currentPage }) {
+  const [displayed, setDisplayed] = useState(null)
+  const [cls, setCls]             = useState('')
+  const prevRef = useRef(-1)
+
+  useEffect(() => {
+    const prev = prevRef.current
+    prevRef.current = currentPage
+
+    if (currentPage < 0) {
+      if (prev >= 0) { setCls('page-out'); setTimeout(() => { setDisplayed(null); setCls('') }, 320) }
+      return
+    }
+    if (prev < 0) {
+      setDisplayed(BOOK_PAGES[currentPage]); setCls('page-in'); return
+    }
+    // page transition
+    setCls('page-out')
+    const t = setTimeout(() => { setDisplayed(BOOK_PAGES[currentPage]); setCls('page-in') }, 320)
+    return () => clearTimeout(t)
+  }, [currentPage])
+
+  /* Closed book: decorative lines */
+  if (!displayed) {
+    return (
+      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(180deg,#fffdf7,#f9f4ea)', borderRadius: '2px 8px 8px 2px', padding: '54px 46px', display: 'flex', flexDirection: 'column', gap: 14, overflow: 'hidden' }}>
+        <div style={{ fontFamily: "'Playfair Display',serif", fontSize: 11, fontWeight: 700, color: '#1A2744', textTransform: 'uppercase', letterSpacing: 1, opacity: 0.35, marginBottom: 10 }}>Table of Contents</div>
+        {[90,78,95,68,84,72,88,62,91,75].map((w,i) => (
+          <div key={i} style={{ display:'flex', alignItems:'center', gap:10, opacity:0.14+i*0.05 }}>
+            <div style={{ width:18, height:1.5, background:'#1A2744', borderRadius:1, flexShrink:0 }} />
+            <div style={{ width:`${w}%`, height:1.5, background:'#1A2744', borderRadius:1 }} />
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  if (displayed.type === 'contents') {
+    return (
+      <div className={cls} style={{ position:'absolute', inset:0, background:'linear-gradient(180deg,#fffdf7,#f9f4ea)', borderRadius:'2px 8px 8px 2px', padding:'42px 42px 42px 46px', overflow:'hidden' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16, paddingBottom:12, borderBottom:'1.5px solid rgba(26,39,68,0.1)' }}>
+          <span style={{ fontFamily:"'Playfair Display',serif", fontSize:20, fontWeight:800, color:'#1A2744' }}>Contents</span>
+          <span style={{ fontFamily:"'DM Mono',monospace", fontSize:9, color:'rgba(26,39,68,0.28)', letterSpacing:'1px' }}>RTE ACT 2009</span>
+        </div>
+        <div style={{ display:'flex', flexDirection:'column', gap:9 }}>
+          {displayed.items.map(item => (
+            <div key={item.num} style={{ display:'flex', alignItems:'baseline', gap:10 }}>
+              <span style={{ fontFamily:"'Playfair Display',serif", fontSize:11, fontWeight:700, color:'#E9872B', minWidth:30, textAlign:'right' }}>{item.num}</span>
+              <div style={{ flex:1, borderBottom:'1px dotted rgba(26,39,68,0.16)', marginBottom:2 }} />
+              <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:11.5, fontWeight:500, color:'#1A2744', maxWidth:264, lineHeight:1.35 }}>{item.label}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ position:'absolute', bottom:18, left:0, right:0, textAlign:'center', fontFamily:"'DM Mono',monospace", fontSize:9, color:'rgba(26,39,68,0.26)', letterSpacing:'1.5px' }}>— i —</div>
+      </div>
+    )
+  }
+
+  /* Chapter page */
+  const pageNum = BOOK_PAGES.findIndex(p => p.id === displayed.id)
+  return (
+    <div className={cls} style={{ position:'absolute', inset:0, background:'linear-gradient(165deg,#fffdf7,#fdf8ee)', borderRadius:'2px 8px 8px 2px', padding:'34px 40px 38px 46px', display:'flex', flexDirection:'column', overflow:'hidden' }}>
+      {/* Header */}
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+        <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:9, fontWeight:700, letterSpacing:'2px', textTransform:'uppercase', color:displayed.color, opacity:0.9 }}>{displayed.chapter}</span>
+        <span style={{ fontFamily:"'DM Mono',monospace", fontSize:8.5, color:'rgba(26,39,68,0.26)', letterSpacing:'1px' }}>RTE ACT 2009</span>
+      </div>
+      {/* Color rule */}
+      <div style={{ height:2, background:`linear-gradient(90deg,${displayed.color},transparent)`, borderRadius:1, marginBottom:14 }} />
+      {/* Title */}
+      <h2 style={{ fontFamily:"'Playfair Display',serif", fontSize:'clamp(15px,1.8vw,19px)', fontWeight:800, color:'#1A2744', lineHeight:1.28, marginBottom:14 }}>{displayed.title}</h2>
+      {/* Body */}
+      <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:12.5, color:'rgba(28,28,28,0.7)', lineHeight:1.78, flex:1, marginBottom:14 }}>{displayed.body}</p>
+      {/* Callout */}
+      <div style={{ padding:'10px 14px', background:`${displayed.color}0d`, borderLeft:`3px solid ${displayed.color}`, borderRadius:'0 8px 8px 0', marginBottom:14 }}>
+        <p style={{ fontFamily:"'DM Sans',sans-serif", fontSize:11, fontWeight:600, color:displayed.color, lineHeight:1.5, margin:0 }}>{displayed.highlight}</p>
+      </div>
+      {/* CTA */}
+      {displayed.href && (
+        <Link to={displayed.href} style={{ display:'inline-flex', alignItems:'center', gap:6, fontSize:11, fontWeight:700, color:displayed.color, textDecoration:'none', letterSpacing:'0.5px' }}>
+          Learn more <ArrowRightIcon style={{ width:11, height:11 }} />
+        </Link>
+      )}
+      {/* Page number */}
+      <div style={{ position:'absolute', bottom:16, left:0, right:0, textAlign:'center', fontFamily:"'DM Mono',monospace", fontSize:9, color:'rgba(26,39,68,0.26)', letterSpacing:'1.5px' }}>— {pageNum} —</div>
+    </div>
+  )
+}

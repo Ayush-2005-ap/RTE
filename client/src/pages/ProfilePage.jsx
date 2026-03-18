@@ -19,15 +19,9 @@ export default function ProfilePage() {
   const fetchUserStats = async () => {
     try {
       setLoading(true)
-      // We can use the public stats or create a specific user stats endpoint
-      // For now, let's fetch based on what we have available
-      const [grievancesRes, questionsRes] = await Promise.all([
-        api.get('/grievances/my'),
-        api.get('/questions/my').catch(() => ({ data: { results: 0 } })) // Fallback if not implemented
-      ])
+      const questionsRes = await api.get('/questions/my').catch(() => ({ data: { results: 0 } }))
       
       setStats({
-        grievancesFiled: grievancesRes.data.results || 0,
         questionsAsked: questionsRes.data.results || 0,
         answersPosted: 0
       })
@@ -93,13 +87,6 @@ export default function ProfilePage() {
 
           {/* Quick Links */}
           <div className="grid sm:grid-cols-2 gap-4">
-            <Link to="/grievances/my" className="bg-white rounded-2xl p-5 card-hover border flex items-center gap-3" style={{ borderColor: 'rgba(26,39,68,0.07)' }}>
-              <div className="w-10 h-10 rounded-xl" style={{ background: 'rgba(232,135,42,0.12)' }} />
-              <div>
-                <p className="font-semibold text-sm text-ink">My Grievances</p>
-                <p className="text-xs text-muted">{stats.grievancesFiled} filed</p>
-              </div>
-            </Link>
             <Link to="/community/questions" className="bg-white rounded-2xl p-5 card-hover border flex items-center gap-3" style={{ borderColor: 'rgba(26,39,68,0.07)' }}>
               <div className="w-10 h-10 rounded-xl" style={{ background: 'rgba(26,39,68,0.08)' }} />
               <div>

@@ -7,11 +7,10 @@ const questions = [
   { id: 1, title: 'Can a private unaided school deny admission to a child from EWS category even if they have reserved seats?', body: 'We applied for RTE admission in a private school in Maharashtra but were denied. The school claims their quota is full already.', author: 'Priya M.', state: 'Maharashtra', category: 'Admissions', tags: ['EWS', 'private school', 'admission'], answers: 7, upvotes: 24, status: 'answered', createdAt: '2 days ago' },
   { id: 2, title: 'What documents are required for RTE admission in Karnataka? The school asked for Aadhaar but we don\'t have one.', body: '', author: 'Suresh K.', state: 'Karnataka', category: 'Admissions', tags: ['documents', 'aadhaar', 'Karnataka'], answers: 4, upvotes: 18, status: 'open', createdAt: '4 days ago' },
   { id: 3, title: 'Is a school allowed to charge uniform fees from RTE students? Our school is demanding ₹1,200 annually.', body: '', author: 'Anita R.', state: 'Delhi', category: 'Fees & Charges', tags: ['uniform', 'fees', 'illegal charges'], answers: 12, upvotes: 47, status: 'answered', createdAt: '1 week ago' },
-  { id: 4, title: 'What is the process to file a complaint against a school that is discriminating against RTE children?', body: '', author: 'Ravi S.', state: 'Uttar Pradesh', category: 'Grievances', tags: ['discrimination', 'complaint'], answers: 2, upvotes: 9, status: 'open', createdAt: '3 days ago' },
   { id: 5, title: 'Can the government school transfer an RTE admitted child mid-year to another school?', body: '', author: 'Meena T.', state: 'Tamil Nadu', category: 'Admissions', tags: ['transfer', 'mid-year'], answers: 0, upvotes: 5, status: 'open', createdAt: '5 hours ago' },
 ]
 
-const categories = ['All', 'Admissions', 'Fees & Charges', 'Grievances', 'Infrastructure', 'Teachers', 'Rights']
+const categories = ['All', 'Admissions', 'Fees & Charges', 'Infrastructure', 'Teachers', 'Rights']
 
 export default function QuestionsListPage() {
   const [search, setSearch] = useState('')

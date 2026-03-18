@@ -9,7 +9,6 @@ const allResults = [
   { type: 'blog', slug: 'understanding-rte-25-percent-quota', title: "Understanding the 25% EWS Quota Under RTE", link: '/blog/understanding-rte-25-percent-quota' },
   { type: 'state', slug: 'kerala', title: 'Kerala — Compliance Score: 91', link: '/states/kerala' },
   { type: 'news', id: 2, title: 'Kerala Achieves 95% Enrollment Under RTE', state: 'Kerala', link: '/news/2' },
-  { type: 'blog', slug: 'how-to-file-rte-grievance', title: 'Step-by-Step: How to File an RTE Grievance', link: '/blog/how-to-file-rte-grievance' },
   { type: 'question', id: 3, title: 'Can a school charge uniform fees from RTE students?', state: 'Delhi', link: '/community/questions/3' },
 ]
 

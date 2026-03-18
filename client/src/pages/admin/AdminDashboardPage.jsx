@@ -18,7 +18,6 @@ const navItems = [
   { label: 'Blog', icon: DocumentTextIcon, href: '/admin/blog' },
 ]
 
-const statusColor = { filed: '#1A2744', reviewing: '#E8872A', resolved: '#2E7D32', escalated: '#C62828' }
 
 function DashboardOverview() {
   const [data, setData] = useState(null)
@@ -54,8 +53,6 @@ function DashboardOverview() {
   const stats = [
     { label: 'Total Users', value: data?.summary?.totalUsers || 0, change: `+${data?.growth?.usersThisWeek || 0} this week`, color: '#1A2744' },
     { label: 'Questions', value: data?.summary?.totalQuestions || 0, change: `+${data?.growth?.questionsThisWeek || 0} this week`, color: '#E8872A' },
-    { label: 'Grievances Filed', value: data?.summary?.totalGrievances || 0, change: `+${data?.growth?.grievancesThisWeek || 0} this week`, color: '#2E7D32' },
-    { label: 'Resolved', value: data?.summary?.resolvedGrievances || 0, change: `${data?.summary?.resolutionRate || 0}% resolution rate`, color: '#558B2F' },
   ]
 
   return (
@@ -87,36 +84,7 @@ function DashboardOverview() {
         ))}
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* Recent Grievances */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-ink">Recent Grievances</h2>
-            <Link to="/admin/moderation" className="text-xs font-semibold" style={{ color: '#E8872A' }}>Explore queue</Link>
-          </div>
-          <div className="space-y-3">
-            {!data?.recentGrievances?.length ? (
-              <div className="py-10 text-center text-muted text-sm italic">No recent grievances filed.</div>
-            ) : (
-              data.recentGrievances.map(g => (
-                <div key={g._id} className="flex items-center justify-between p-3 rounded-xl" style={{ background: 'rgba(26,39,68,0.03)' }}>
-                  <div>
-                    <p className="text-xs font-mono font-semibold" style={{ color: '#1A2744' }}>{g.refNumber}</p>
-                    <p className="text-sm text-ink capitalize">{g.category.replace('-', ' ')} <span className="text-muted">· {g.state}</span></p>
-                  </div>
-                  <div className="text-right">
-                    <span className="badge text-xs font-semibold px-2.5 py-1 rounded-full"
-                      style={{ background: statusColor[g.status] + '18', color: statusColor[g.status] }}>
-                      {g.status}
-                    </span>
-                    <p className="text-xs text-muted mt-1">{new Date(g.createdAt).toLocaleDateString()}</p>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
+      <div className="grid lg:grid-cols-1 gap-6">
         {/* Top States */}
         <div className="bg-white rounded-2xl p-5 shadow-sm">
           <h2 className="font-semibold text-ink mb-4">State Compliance Overview</h2>
@@ -151,92 +119,10 @@ function DashboardOverview() {
 }
 
 function ModerationPage() {
-  const [grievances, setGrievances] = useState([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    fetchGrievances()
-  }, [])
-
-  const fetchGrievances = async () => {
-    try {
-      setLoading(true)
-      const res = await api.get('/grievances') // Admin endpoint to get all
-      if (res.data.status === 'success') {
-        setGrievances(res.data.data.grievances)
-      }
-    } catch {
-      toast.error('Failed to load grievances')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const updateStatus = async (id, status) => {
-    try {
-      const res = await api.patch(`/grievances/${id}/status`, { status })
-      if (res.data.status === 'success') {
-        toast.success('Status updated')
-        fetchGrievances()
-      }
-    } catch {
-      toast.error('Failed to update status')
-    }
-  }
-
-  if (loading) return <div className="py-20 text-center">Loading grievances...</div>
-
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-      <h1 className="text-h2 font-display mb-6" style={{ color: '#1A2744' }}>Moderation Queue</h1>
-      
-      <div className="bg-white rounded-3xl overflow-hidden shadow-sm border border-navy/5">
-        <table className="w-full text-left border-collapse">
-          <thead style={{ background: 'rgba(26,39,68,0.03)' }}>
-            <tr>
-              <th className="p-4 text-xs font-bold uppercase tracking-wider text-muted">Ref#</th>
-              <th className="p-4 text-xs font-bold uppercase tracking-wider text-muted">User</th>
-              <th className="p-4 text-xs font-bold uppercase tracking-wider text-muted">Category</th>
-              <th className="p-4 text-xs font-bold uppercase tracking-wider text-muted">Status</th>
-              <th className="p-4 text-xs font-bold uppercase tracking-wider text-muted text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-navy/5">
-            {grievances.map(g => (
-              <tr key={g._id} className="hover:bg-navy/[0.01] transition-colors">
-                <td className="p-4 text-sm font-mono font-bold" style={{ color: '#1A2744' }}>{g.refNumber}</td>
-                <td className="p-4 text-sm">
-                  <p className="font-semibold text-ink">{g.author?.name || 'Unknown'}</p>
-                  <p className="text-xs text-muted">{g.state}</p>
-                </td>
-                <td className="p-4 text-sm capitalize">{g.category.replace('-', ' ')}</td>
-                <td className="p-4">
-                  <span className="badge text-xs font-semibold px-2 py-1 rounded-full"
-                    style={{ background: statusColor[g.status] + '18', color: statusColor[g.status] }}>
-                    {g.status}
-                  </span>
-                </td>
-                <td className="p-4 text-right">
-                  <select 
-                    className="text-xs bg-navy/5 border-none rounded-lg px-2 py-1 focus:ring-1 focus:ring-orange/50 transition-all cursor-pointer"
-                    value={g.status}
-                    onChange={(e) => updateStatus(g._id, e.target.value)}
-                  >
-                    <option value="filed">Filed</option>
-                    <option value="reviewing">Reviewing</option>
-                    <option value="resolved">Resolved</option>
-                    <option value="escalated">Escalated</option>
-                  </select>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {!grievances.length && (
-          <div className="py-20 text-center text-muted italic">No grievances in queue.</div>
-        )}
-      </div>
-    </motion.div>
+    <div className="py-20 text-center text-muted">
+      Forum moderation coming soon.
+    </div>
   )
 }
 

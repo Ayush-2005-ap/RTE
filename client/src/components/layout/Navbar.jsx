@@ -147,10 +147,11 @@ export default function Navbar() {
               <MagnifyingGlassIcon className="w-5 h-5" />
             </button>
 
-            {isAuthenticated ? (
+            {/* Only show user controls if authenticated */}
+            {isAuthenticated && (
               <div className="hidden md:flex items-center gap-2">
                 {(user?.role === 'admin' || user?.role === 'moderator') && (
-                  <Link to="/admin" className="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-saffron-DEFAULT hover:text-white transition-colors rounded-lg bg-white/10 hover:bg-white/15" style={{ color: '#E8872A' }}>
+                  <Link to="/admin" className="flex items-center gap-2 px-3 py-2 text-sm font-semibold hover:text-white transition-colors rounded-lg bg-white/10 hover:bg-white/15" style={{ color: '#E8872A' }}>
                     Dashboard
                   </Link>
                 )}
@@ -165,12 +166,6 @@ export default function Navbar() {
                 >
                   <ArrowRightOnRectangleIcon className="w-5 h-5" />
                 </button>
-              </div>
-            ) : (
-              <div className="hidden md:flex items-center gap-2">
-                <Link to="/login" className="btn-primary text-gray-400 hover:text-white text-sm px-3 py-1.5">
-                  Login
-                </Link>
               </div>
             )}
 
@@ -225,32 +220,27 @@ export default function Navbar() {
                   </Link>
                 )
               )}
-              <div className="mt-6 flex flex-col gap-3 border-t border-white/10 pt-6">
-                {isAuthenticated ? (
-                  <>
-                    {(user?.role === 'admin' || user?.role === 'moderator') && (
-                      <Link to="/admin" onClick={() => setMobileOpen(false)} className="px-4 py-3 text-[#E8872A] font-bold bg-white/5 rounded-xl text-center mb-2">
-                        Admin Dashboard
-                      </Link>
-                    )}
-                    <Link to="/profile" onClick={() => setMobileOpen(false)} className="btn-secondary text-white border-white/30 text-center">My Profile</Link>
-                    <button 
-                      onClick={() => {
-                        handleLogout();
-                        setMobileOpen(false);
-                      }} 
-                      className="btn-primary text-center"
-                    >
-                      Logout
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <Link to="/login" onClick={() => setMobileOpen(false)} className="btn-secondary text-white border-white/30 text-center">Login</Link>
-                    <Link to="/register" onClick={() => setMobileOpen(false)} className="btn-primary text-center">Register</Link>
-                  </>
-                )}
-              </div>
+
+              {/* Only show auth controls in mobile menu if authenticated */}
+              {isAuthenticated && (
+                <div className="mt-6 flex flex-col gap-3 border-t border-white/10 pt-6">
+                  {(user?.role === 'admin' || user?.role === 'moderator') && (
+                    <Link to="/admin" onClick={() => setMobileOpen(false)} className="px-4 py-3 text-[#E8872A] font-bold bg-white/5 rounded-xl text-center mb-2">
+                      Admin Dashboard
+                    </Link>
+                  )}
+                  <Link to="/profile" onClick={() => setMobileOpen(false)} className="btn-secondary text-white border-white/30 text-center">My Profile</Link>
+                  <button 
+                    onClick={() => {
+                      handleLogout();
+                      setMobileOpen(false);
+                    }} 
+                    className="btn-primary text-center"
+                  >
+                    Logout
+                  </button>
+                </div>
+              )}
             </div>
           </motion.div>
         )}

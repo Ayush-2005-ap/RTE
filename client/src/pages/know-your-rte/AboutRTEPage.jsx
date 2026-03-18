@@ -102,7 +102,6 @@ export default function AboutRTEPage() {
           <h3 className="font-display font-bold text-2xl mb-3" style={{ color: '#1A2744' }}>Know your rights. Exercise them.</h3>
           <p className="text-muted mb-6">If you believe your child's rights are being violated, take action today.</p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Link to="/grievances/file" className="btn-primary">File a Grievance</Link>
             <Link to="/community/ask" className="btn-secondary">Ask the Community</Link>
           </div>
         </div>

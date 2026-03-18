@@ -138,7 +138,6 @@ export default function StateDetailPage() {
                 <div className="p-6 bg-white rounded-2xl shadow-sm">
                   <h3 className="font-semibold text-ink mb-3">Take Action</h3>
                   <div className="space-y-3">
-                    <Link to="/grievances/file" className="btn-primary w-full justify-center text-sm">File a Grievance</Link>
                     <Link to="/community/ask" className="btn-secondary w-full justify-center text-sm">Ask a Question</Link>
                   </div>
                 </div>
@@ -192,14 +191,10 @@ export default function StateDetailPage() {
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <div className="max-w-lg bg-white p-6 rounded-2xl shadow-sm">
                 <h3 className="font-semibold text-ink mb-4">State RTE Authority Contact</h3>
-                <p className="text-sm text-muted mb-2">For official grievances, contact the state RTE authority:</p>
+                <p className="text-sm text-muted mb-2">For official inquiries, contact the state RTE authority:</p>
                 <a href={`mailto:${state.contactEmail}`} className="text-sm font-semibold" style={{ color: '#E8872A' }}>
                   {state.contactEmail}
                 </a>
-                <div className="mt-6 border-t pt-4" style={{ borderColor: 'rgba(26,39,68,0.08)' }}>
-                  <p className="text-xs text-muted mb-3">Or file a grievance through our platform for tracking:</p>
-                  <Link to="/grievances/file" className="btn-primary text-sm">File Grievance Online</Link>
-                </div>
               </div>
             </motion.div>
           )}

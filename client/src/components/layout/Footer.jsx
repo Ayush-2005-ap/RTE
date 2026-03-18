@@ -12,7 +12,6 @@ const footerLinks = {
   Community: [
     { label: 'Q&A Forum', href: '/community/questions' },
     { label: 'Discussions', href: '/community/discussions' },
-    { label: 'File Grievance', href: '/grievances/file' },
   ],
   Resources: [
     { label: 'Blog', href: '/blog' },
@@ -73,10 +72,7 @@ export default function Footer() {
             <span style={{ color: '#E8872A' }}>education.</span>
           </p>
           <div className="flex gap-3">
-            <Link to="/grievances/file" className="btn-primary text-sm px-5 py-2.5">
-              File a Grievance
-            </Link>
-            <Link to="/community/ask" className="btn-secondary text-sm px-5 py-2.5 text-white border-white/30 hover:bg-white hover:text-navy-DEFAULT">
+            <Link to="/community/ask" className="btn-primary text-sm px-5 py-2.5 text-white border-white/30 hover:bg-white hover:text-navy-DEFAULT">
               Ask the Community
             </Link>
           </div>

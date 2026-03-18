@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import { ArrowLeftIcon, PaperAirplaneIcon, XMarkIcon } from '@heroicons/react/24/outline'
 
 const states = ['Maharashtra','Delhi','Karnataka','Kerala','Tamil Nadu','Uttar Pradesh','Gujarat','West Bengal','Rajasthan','Madhya Pradesh','Bihar','Other']
-const categories = ['Admissions','Fees & Charges','Infrastructure','Teachers','Grievances','Rights','General']
+const categories = ['Admissions','Fees & Charges','Infrastructure','Teachers','Rights','General']
 
 export default function AskQuestionPage() {
   const [form, setForm] = useState({ title: '', body: '', state: '', category: '' })

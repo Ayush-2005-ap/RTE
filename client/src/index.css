@@ -40,6 +40,16 @@ body {
   line-height: 1.08;
 }
 
+/* ─── 3D Utilities ────────────────────────────────── */
+.preserve-3d {
+  -webkit-transform-style: preserve-3d;
+  transform-style: preserve-3d;
+}
+.backface-hidden {
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
 .text-h1 {
   font-family: 'Playfair Display', Georgia, serif;
   font-size: clamp(28px, 4vw, 36px);

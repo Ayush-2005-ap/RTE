@@ -46,7 +46,6 @@ export default function RightsPage() {
             style={{ background: 'linear-gradient(135deg,#1A2744,#243356)' }}>
             <h2 className="font-display font-bold text-2xl text-white mb-3">Is your child's right being violated?</h2>
             <p className="text-white/60 mb-6">Our platform helps you file a formal complaint and track its resolution.</p>
-            <Link to="/grievances/file" className="btn-primary">File a Grievance Now</Link>
           </motion.div>
         </div>
       </div>
