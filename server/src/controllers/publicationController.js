@@ -2,14 +2,13 @@ const Publication = require('../models/Publication');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/AppError');
 const cloudinary = require('../config/cloudinary');
-const { uploadPDF, deletePDF } = require('../services/supabaseStorage');
 const streamifier = require('streamifier');
 
-// Helper: Upload image buffer to Cloudinary
-const uploadImageToCloudinary = (buffer, folder) => {
+// Helper: Upload buffer to Cloudinary (any resource type)
+const uploadToCloudinary = (buffer, folder, resourceType = 'auto') => {
   return new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
-      { folder, resource_type: 'image' },
+      { folder, resource_type: resourceType },
       (error, result) => {
         if (error) reject(error);
         else resolve(result);
@@ -92,28 +91,31 @@ exports.createPublication = catchAsync(async (req, res, next) => {
     return next(new AppError('Please upload a PDF file', 400));
   }
 
-  // 1) Upload PDF to Supabase
-  const { pdfUrl, pdfPath } = await uploadPDF(
+  // 1) Upload PDF to Cloudinary
+  const pdfResult = await uploadToCloudinary(
     req.files.pdf[0].buffer,
-    req.files.pdf[0].originalname
+    'rte/publications/pdfs'
   );
+  const pdfUrl = pdfResult.secure_url;
+  const pdfPublicId = pdfResult.public_id;
 
   // 2) Optionally upload thumbnail to Cloudinary
   let thumbnailUrl, thumbnailPublicId;
   if (req.files.thumbnail && req.files.thumbnail[0]) {
-    const result = await uploadImageToCloudinary(
+    const thumbResult = await uploadToCloudinary(
       req.files.thumbnail[0].buffer,
-      'rte/publications'
+      'rte/publications/thumbnails',
+      'image'
     );
-    thumbnailUrl = result.secure_url;
-    thumbnailPublicId = result.public_id;
+    thumbnailUrl = thumbResult.secure_url;
+    thumbnailPublicId = thumbResult.public_id;
   }
 
   const publication = await Publication.create({
     title,
     description,
     pdfUrl,
-    pdfPath,
+    pdfPublicId,
     thumbnailUrl,
     thumbnailPublicId,
     category: category || 'other',
@@ -148,29 +150,29 @@ exports.updatePublication = catchAsync(async (req, res, next) => {
 
   // Replace PDF if provided
   if (req.files && req.files.pdf && req.files.pdf[0]) {
-    // Delete old PDF from Supabase
-    if (publication.pdfPath) {
-      await deletePDF(publication.pdfPath);
+    if (publication.pdfPublicId) {
+      await cloudinary.uploader.destroy(publication.pdfPublicId, { resource_type: 'raw' }).catch(() => {});
     }
-    const { pdfUrl, pdfPath } = await uploadPDF(
+    const pdfResult = await uploadToCloudinary(
       req.files.pdf[0].buffer,
-      req.files.pdf[0].originalname
+      'rte/publications/pdfs'
     );
-    publication.pdfUrl = pdfUrl;
-    publication.pdfPath = pdfPath;
+    publication.pdfUrl = pdfResult.secure_url;
+    publication.pdfPublicId = pdfResult.public_id;
   }
 
   // Replace thumbnail if provided
   if (req.files && req.files.thumbnail && req.files.thumbnail[0]) {
     if (publication.thumbnailPublicId) {
-      await cloudinary.uploader.destroy(publication.thumbnailPublicId);
+      await cloudinary.uploader.destroy(publication.thumbnailPublicId).catch(() => {});
     }
-    const result = await uploadImageToCloudinary(
+    const thumbResult = await uploadToCloudinary(
       req.files.thumbnail[0].buffer,
-      'rte/publications'
+      'rte/publications/thumbnails',
+      'image'
     );
-    publication.thumbnailUrl = result.secure_url;
-    publication.thumbnailPublicId = result.public_id;
+    publication.thumbnailUrl = thumbResult.secure_url;
+    publication.thumbnailPublicId = thumbResult.public_id;
   }
 
   await publication.save();
@@ -190,14 +192,14 @@ exports.deletePublication = catchAsync(async (req, res, next) => {
     return next(new AppError('No publication found with that ID', 404));
   }
 
-  // Delete PDF from Supabase
-  if (publication.pdfPath) {
-    await deletePDF(publication.pdfPath);
+  // Delete PDF from Cloudinary
+  if (publication.pdfPublicId) {
+    await cloudinary.uploader.destroy(publication.pdfPublicId, { resource_type: 'raw' }).catch(() => {});
   }
 
   // Delete thumbnail from Cloudinary
   if (publication.thumbnailPublicId) {
-    await cloudinary.uploader.destroy(publication.thumbnailPublicId);
+    await cloudinary.uploader.destroy(publication.thumbnailPublicId).catch(() => {});
   }
 
   await Publication.findByIdAndDelete(req.params.id);

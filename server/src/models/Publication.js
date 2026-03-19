@@ -16,8 +16,8 @@ const publicationSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Publication must have a PDF file']
   },
-  pdfPath: {
-    type: String  // Supabase storage path for deletion
+  pdfPublicId: {
+    type: String  // Cloudinary public ID for deletion
   },
   thumbnailUrl: {
     type: String  // Optional cover image (Cloudinary)
