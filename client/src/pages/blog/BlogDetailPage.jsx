@@ -55,9 +55,9 @@ export default function BlogDetailPage() {
               </button>
             </div>
 
-            {post.featuredImage && (
+            {post.featuredImage?.url && (
               <div className="mb-10 w-full overflow-hidden rounded-2xl">
-                <img src={post.featuredImage} alt={post.title} className="w-full object-cover max-h-[450px]" />
+                <img src={post.featuredImage.url} alt={post.title} className="w-full object-cover max-h-[450px]" />
               </div>
             )}
 

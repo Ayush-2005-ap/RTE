@@ -52,9 +52,9 @@ export default function BlogListPage() {
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-10">
                   <Link to={`/blog/${featured.slug}`}>
                     <div className="bg-white rounded-3xl p-8 card-hover border-2 flex flex-col md:flex-row gap-8" style={{ borderColor: 'rgba(232,135,42,0.3)' }}>
-                      {featured.featuredImage && (
+                      {featured.featuredImage?.url && (
                         <div className="w-full md:w-1/3">
-                          <img src={featured.featuredImage} alt="" className="w-full h-48 md:h-full object-cover rounded-2xl" />
+                          <img src={featured.featuredImage.url} alt="" className="w-full h-48 md:h-full object-cover rounded-2xl" />
                         </div>
                       )}
                       <div className="flex-1">
@@ -85,8 +85,8 @@ export default function BlogListPage() {
                     <Link to={`/blog/${post.slug}`} className="block h-full">
                       <div className="bg-white rounded-2xl overflow-hidden shadow-sm card-hover border h-full flex flex-col"
                         style={{ borderColor: 'rgba(26,39,68,0.07)' }}>
-                        {post.featuredImage && (
-                          <img src={post.featuredImage} alt="" className="w-full h-40 object-cover" />
+                        {post.featuredImage?.url && (
+                          <img src={post.featuredImage.url} alt="" className="w-full h-40 object-cover" />
                         )}
                         <div className="p-5 flex-1 flex flex-col">
                           <div className="flex flex-wrap gap-1.5 mb-3">

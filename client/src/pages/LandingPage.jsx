@@ -96,13 +96,13 @@ function HeroSlider({ slides }) {
         className="w-full shadow-xl border border-gray-100 bg-white"
       >
         {slides.map(slide => (
-           <SwiperSlide key={slide.id}>
+           <SwiperSlide key={slide._id}>
              <div className="flex flex-col lg:flex-row h-full bg-white">
                
                {/* Left Column */}
                <div className="w-full lg:w-[62%] flex flex-col cursor-pointer group p-6 lg:p-12 lg:pr-8" onClick={() => window.open(slide.leftLink, '_blank')}>
                  <div className="relative w-full h-[250px] md:h-[350px] overflow-hidden mb-8">
-                   <img src={slide.leftImage} alt={slide.leftTitle} className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-700" />
+                   <img src={slide.leftImageUrl} alt={slide.leftTitle} className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-700" />
                  </div>
                  <div className="flex items-center gap-4 text-sm font-semibold text-[#E9872B] uppercase tracking-wide mb-3">
                    <span>{slide.leftCategory}</span>
