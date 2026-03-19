@@ -25,10 +25,11 @@ app.use(
   cors({
     origin: (origin, callback) => {
       if (!origin) return callback(null, true);
-      if (process.env.NODE_ENV === 'development' && origin.startsWith('http://localhost:')) {
-        return callback(null, true);
-      }
-      if (origin === process.env.CLIENT_URL) {
+      const isVercel = origin.endsWith('.vercel.app');
+      const isLocal = origin.startsWith('http://localhost:');
+      const isClientUrl = origin === process.env.CLIENT_URL;
+
+      if (isLocal || isVercel || isClientUrl) {
         return callback(null, true);
       }
       callback(null, false);
