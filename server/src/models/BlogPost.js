@@ -5,11 +5,11 @@ const slugify = require('slugify');
 const blogPostSchema = new mongoose.Schema({
   title: {
     type: String,
-    required: [true, 'Blog post must have a title']
+    required: [true, 'Blog post must have a title'],
+    trim: true
   },
   slug: {
     type: String,
-    required: [true, 'Blog post must have a slug'],
     unique: true
   },
   body: {
@@ -18,7 +18,7 @@ const blogPostSchema = new mongoose.Schema({
   },
   excerpt: {
     type: String,
-    maxlength: [300, 'Excerpt must be less or equal than 300 characters']
+    maxlength: [500, 'Excerpt must be less or equal than 500 characters']
   },
   author: {
     type: mongoose.Schema.ObjectId,
@@ -38,12 +38,21 @@ const blogPostSchema = new mongoose.Schema({
     enum: ['draft', 'published'],
     default: 'draft'
   },
-  publishedAt: Date
+  publishedAt: Date,
+  commentCount: {
+    type: Number,
+    default: 0
+  },
+  viewCount: {
+    type: Number,
+    default: 0
+  }
 }, {
   timestamps: true
 });
 
 blogPostSchema.index({ slug: 1 }, { unique: true });
+blogPostSchema.index({ status: 1, publishedAt: -1 });
 
 blogPostSchema.pre('validate', function(next) {
   if (this.title && !this.slug) {
@@ -55,5 +64,4 @@ blogPostSchema.pre('validate', function(next) {
 blogPostSchema.plugin(mongoosePaginate);
 
 const BlogPost = mongoose.model('BlogPost', blogPostSchema);
-
 module.exports = BlogPost;

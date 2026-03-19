@@ -21,102 +21,35 @@ import 'swiper/css/effect-fade';
 
 gsap.registerPlugin(ScrollTrigger);
 
-/* ── MOCK DATA ────────────────────────────────────────────────────────────── */
-// In reality, this comes from backend API
-const mockSliderApi = () => Promise.resolve([
-  {
-    id: 1,
-    leftImage: 'https://images.unsplash.com/photo-1577896851231-70ef18881754?q=80&w=2670&auto=format&fit=crop',
-    leftCategory: 'Education',
-    leftReadTime: '2 Min Read',
-    leftTitle: 'State Regulatory Profile Bihar',
-    leftDesc: 'In consonance with the essence of the New Education Policy, our education governance needs major reforms in order to align itself with the needs of the modern education system. This report provides a comprehensive look at the regulatory landscape of Bihar.',
-    leftLink: 'https://ccs.in',
-    rightLabel: 'Did you know?',
-    rightTitle: 'Can a street vendor be evicted any time?',
-    rightDesc: 'According to the Street Vendors (Protection of Livelihood and Regulation of Street Vending) Act, 2014, in India, no street vendor can be relocated or evicted without being given thirty days\' notice by the local authority.'
-  },
-  {
-    id: 2,
-    leftImage: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?q=80&w=2622&auto=format&fit=crop',
-    leftCategory: 'Report',
-    leftReadTime: '5 Min Read',
-    leftTitle: 'National Independent Schools Alliance Report 2025',
-    leftDesc: 'An in-depth analysis of the challenges and opportunities for independent schools in India, focusing on regulatory hurdles and compliance with the RTE Act.',
-    leftLink: 'https://ccs.in',
-    rightLabel: 'Did you know?',
-    rightTitle: 'Is Aadhaar mandatory for school admission?',
-    rightDesc: 'According to the RTE Act guidelines and various court rulings, no child can be denied admission to a school under the RTE quota merely due to the lack of an Aadhaar card.'
-  },
-  {
-    id: 3,
-    leftImage: 'https://images.unsplash.com/photo-1509062522246-3755977927d7?q=80&w=2664&auto=format&fit=crop',
-    leftCategory: 'Policy Series',
-    leftReadTime: '4 Min Read',
-    leftTitle: 'Impact of RTE on School Choice',
-    leftDesc: 'How the Right to Education Act has influenced parents\' ability to choose schools for their children and the resulting market dynamics in the education sector.',
-    leftLink: 'https://ccs.in',
-    rightLabel: 'Fact Check',
-    rightTitle: 'Can schools mandate buying uniforms from them?',
-    rightDesc: 'Many educational boards strongly discourage or prohibit schools from forcing parents to buy books and uniforms exclusively from school-selected vendors or the school premises.'
-  }
-]);
+import api from '../services/api';
 
-const bookContent = [
-  {
-    type: 'contents',
-    title: 'Table of Contents',
-    items: [
-      'Chapter 1: Preliminary',
-      'Chapter 2: Right to Free and Compulsory Education',
-      'Chapter 3: Duties of Appropriate Government',
-      'Chapter 4: Responsibilities of Schools and Teachers',
-      'Chapter 5: Curriculum and Completion of Education',
-      'Chapter 6: Protection of Right of Children',
-      'Chapter 7: Miscellaneous',
-      'Schedule',
-      'Amendments & Case Laws',
-      'State Rules'
-    ]
-  },
-  {
-    type: 'chapter',
-    title: 'Chapter 1: Preliminary',
-    desc: 'This chapter outlines the short title, extent, and commencement of the Act. It provides essential definitions such as "child," "appropriate Government," "local authority," and defining types of schools covered under the legislation. It sets the scope of the right to education.',
-  },
-  {
-    type: 'chapter',
-    title: 'Chapter 2: Right to Free & Compulsory Education',
-    desc: 'Guarantees the fundamental right of every child aged 6 to 14 to free and compulsory education in a neighborhood school. Explains special provisions for children not admitted to, or who have not completed, elementary education, ensuring their right to transfer to other schools.',
-  },
-  {
-    type: 'chapter',
-    title: 'Chapter 3: Duties of Appropriate Government',
-    desc: 'Details the obligations of the government and local authorities to establish schools within a defined distance, provide infrastructure, ensure non-discrimination, and guarantee training facilities for teachers. It also covers the sharing of financial responsibilities.',
-  },
-  {
-    type: 'chapter',
-    title: 'Chapter 4: Responsibilities of Schools',
-    desc: 'Mandates 25% reservation for children from disadvantaged groups in private schools. Prohibits capitation fees, screening procedures, physical punishment, and mental harassment. Defines the qualifications required for teachers and their duties.',
-  },
-  {
-    type: 'chapter',
-    title: 'Chapter 5: Curriculum & Completion',
-    desc: 'Lays down norms for the curriculum and evaluation procedure, emphasizing all-round development of the child, building on the child\'s knowledge, and learning through activities. Mandates no child shall be held back or expelled until completion of elementary education.',
-  },
-  {
-    type: 'chapter',
-    title: 'Chapter 6: Protection of Rights',
-    desc: 'Constitutes the National and State Commissions for Protection of Child Rights (NCPCR and SCPCR) to monitor the child\'s right to education and inquire into complaints relating to child\'s right to education.',
+const fetchActiveSlides = async () => {
+  try {
+    const res = await api.get('/slider');
+    return res.data.data.slides;
+  } catch (err) {
+    console.error('Failed to fetch slides:', err);
+    return [];
   }
-];
+};
+
+const fetchBookConfig = async () => {
+  try {
+    const res = await api.get('/book');
+    return res.data.data.content || [];
+  } catch (err) {
+    console.error('Failed to fetch book content:', err);
+    return [];
+  }
+};
 
 export default function LandingPage() {
   const [slides, setSlides] = useState([]);
+  const [bookContent, setBookContent] = useState([]);
   
   useEffect(() => {
-    // Mock fetching dynamic data
-    mockSliderApi().then(setSlides);
+    fetchActiveSlides().then(setSlides);
+    fetchBookConfig().then(setBookContent);
   }, []);
 
   return (
@@ -126,7 +59,7 @@ export default function LandingPage() {
       <HeroSlider slides={slides} />
 
       {/* 2. Scroll-Triggered Book Section */}
-      <BookScrollSection />
+      {bookContent.length > 0 && <BookScrollSection bookContent={bookContent} />}
 
     </div>
   );
@@ -210,7 +143,7 @@ function HeroSlider({ slides }) {
 /* ─────────────────────────────────────────────────────────────────────────────
    BOOK SCROLL SECTION
 ───────────────────────────────────────────────────────────────────────────── */
-function BookScrollSection() {
+function BookScrollSection({ bookContent }) {
   const containerRef = useRef(null);
   const stickyRef = useRef(null);
   

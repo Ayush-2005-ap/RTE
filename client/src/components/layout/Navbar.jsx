@@ -28,6 +28,7 @@ const navLinks = [
   },
   { label: 'News', href: '/news' },
   { label: 'Blog', href: '/blog' },
+  { label: 'Publications', href: '/publications' },
 ]
 
 import useAuthStore from '../../store/authStore'

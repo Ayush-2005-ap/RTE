@@ -5,18 +5,20 @@ const roleCheck = require('../middleware/roleCheck');
 
 const router = express.Router();
 
-// Public routes
+// Public routes — no login needed
 router.get('/', questionController.getAllQuestions);
 router.get('/:id', questionController.getQuestion);
-
-// Protected routes
-router.use(authGuard);
-
 router.post('/', questionController.createQuestion);
 router.post('/:id/answers', questionController.createAnswer);
-router.post('/:id/vote', questionController.toggleQuestionVote);
+router.post('/:id/upvote', questionController.upvoteQuestion);
+router.post('/answers/:id/upvote', questionController.upvoteAnswer);
 
-// Admin/Moderator routes
-router.patch('/answers/:id/verify', roleCheck('admin', 'moderator'), questionController.toggleAnswerVerification);
+// Admin routes (protected)
+router.use(authGuard);
+router.use(roleCheck('admin', 'moderator'));
+
+router.delete('/:id', questionController.deleteQuestion);
+router.delete('/answers/:id', questionController.deleteAnswer);
+router.patch('/answers/:id/verify', questionController.toggleAnswerVerification);
 
 module.exports = router;

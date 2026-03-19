@@ -5,10 +5,7 @@ const roleCheck = require('../middleware/roleCheck');
 
 const router = express.Router();
 
-// Public stats
-router.get('/', statsController.getPublicStats);
-
-// Admin stats
+// Admin dashboard stats (protected)
 router.get('/admin', authGuard, roleCheck('admin', 'moderator'), statsController.getAdminStats);
 
 module.exports = router;

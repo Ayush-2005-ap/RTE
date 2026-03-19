@@ -1,68 +1,70 @@
 const User = require('../models/User');
 const Question = require('../models/Question');
-const Grievance = require('../models/Grievance');
+const News = require('../models/News');
+const BlogPost = require('../models/BlogPost');
+const Publication = require('../models/Publication');
+const Comment = require('../models/Comment');
 const catchAsync = require('../utils/catchAsync');
 
 /**
- * Get public stats for homepage
- */
-exports.getPublicStats = catchAsync(async (req, res, next) => {
-  const totalUsers = await User.countDocuments();
-  const totalQuestions = await Question.countDocuments();
-  const totalGrievances = await Grievance.countDocuments({ status: 'resolved' });
-
-  res.status(200).json({
-    status: 'success',
-    data: {
-      stats: {
-        totalUsers,
-        totalQuestions,
-        resolvedGrievances: totalGrievances
-      }
-    }
-  });
-});
-
-/**
- * Get detailed stats for Admin Dashboard
+ * GET /api/v1/stats/admin — Admin Dashboard Stats
  */
 exports.getAdminStats = catchAsync(async (req, res, next) => {
-  // 1. Basic counts
-  const totalUsers = await User.countDocuments();
-  const totalQuestions = await Question.countDocuments();
-  const totalGrievances = await Grievance.countDocuments();
-  const resolvedGrievances = await Grievance.countDocuments({ status: 'resolved' });
-
-  // 2. Growth stats (this week)
   const oneWeekAgo = new Date();
   oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
 
-  const usersThisWeek = await User.countDocuments({ createdAt: { $gte: oneWeekAgo } });
-  const questionsThisWeek = await Question.countDocuments({ createdAt: { $gte: oneWeekAgo } });
-  const grievancesThisWeek = await Grievance.countDocuments({ createdAt: { $gte: oneWeekAgo } });
-
-  // 3. Recent activity
-  const recentGrievances = await Grievance.find()
-    .sort('-createdAt')
-    .limit(5)
-    .select('refNumber category state status createdAt');
+  const [
+    totalUsers,
+    totalAdmins,
+    totalQuestions,
+    totalNews,
+    totalBlogs,
+    totalPublications,
+    totalComments,
+    usersThisWeek,
+    questionsThisWeek,
+    newsThisWeek,
+    blogsThisWeek,
+    recentQuestions,
+    recentComments
+  ] = await Promise.all([
+    User.countDocuments(),
+    User.countDocuments({ role: { $in: ['admin', 'moderator'] } }),
+    Question.countDocuments(),
+    News.countDocuments(),
+    BlogPost.countDocuments({ status: 'published' }),
+    Publication.countDocuments(),
+    Comment.countDocuments(),
+    User.countDocuments({ createdAt: { $gte: oneWeekAgo } }),
+    Question.countDocuments({ createdAt: { $gte: oneWeekAgo } }),
+    News.countDocuments({ createdAt: { $gte: oneWeekAgo } }),
+    BlogPost.countDocuments({ createdAt: { $gte: oneWeekAgo } }),
+    Question.find().sort('-createdAt').limit(5).select('title authorName status createdAt'),
+    Comment.find().sort('-createdAt').limit(5).select('contentType authorName body createdAt')
+  ]);
 
   res.status(200).json({
     status: 'success',
     data: {
       summary: {
         totalUsers,
+        totalAdmins,
         totalQuestions,
-        totalGrievances,
-        resolvedGrievances,
-        resolutionRate: totalGrievances > 0 ? Math.round((resolvedGrievances / totalGrievances) * 100) : 0
+        totalNews,
+        totalBlogs,
+        totalPublications,
+        totalComments
       },
       growth: {
         usersThisWeek,
         questionsThisWeek,
-        grievancesThisWeek
+        newsThisWeek,
+        blogsThisWeek
       },
-      recentGrievances
+      recentActivity: {
+        questions: recentQuestions,
+        comments: recentComments
+      }
     }
   });
 });

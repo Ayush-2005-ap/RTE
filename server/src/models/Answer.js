@@ -11,25 +11,24 @@ const answerSchema = new mongoose.Schema({
     required: [true, 'Answer must have a body'],
     maxlength: [10000, 'Body must be less or equal than 10000 characters']
   },
-  author: {
-    type: mongoose.Schema.ObjectId,
-    ref: 'User',
-    required: [true, 'Answer must belong to a user']
+  authorName: {
+    type: String,
+    default: 'Anonymous',
+    maxlength: [60, 'Name must be less or equal than 60 characters']
   },
-  upvotes: [
-    {
-      type: mongoose.Schema.ObjectId,
-      ref: 'User'
-    }
-  ],
+  upvoteCount: {
+    type: Number,
+    default: 0
+  },
   isVerified: {
     type: Boolean,
-    default: false
+    default: false  // Admin can mark as verified/helpful
   }
 }, {
   timestamps: true
 });
 
-const Answer = mongoose.model('Answer', answerSchema);
+answerSchema.index({ questionId: 1, createdAt: -1 });
 
+const Answer = mongoose.model('Answer', answerSchema);
 module.exports = Answer;

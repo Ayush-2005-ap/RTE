@@ -13,6 +13,7 @@ import AskQuestionPage from './pages/community/AskQuestionPage'
 import DiscussionsPage from './pages/community/DiscussionsPage'
 import NewsPage from './pages/news/NewsPage'
 import NewsDetailPage from './pages/news/NewsDetailPage'
+import PublicationsPage from './pages/publications/PublicationsPage'
 import BlogListPage from './pages/blog/BlogListPage'
 import BlogDetailPage from './pages/blog/BlogDetailPage'
 import SearchResultsPage from './pages/SearchResultsPage'
@@ -59,6 +60,8 @@ export default function App() {
             {/* News */}
             <Route path="/news" element={<NewsPage />} />
             <Route path="/news/:id" element={<NewsDetailPage />} />
+
+            <Route path="/publications" element={<PublicationsPage />} />
 
             {/* Blog */}
             <Route path="/blog" element={<BlogListPage />} />

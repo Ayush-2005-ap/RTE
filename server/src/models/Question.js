@@ -12,10 +12,10 @@ const questionSchema = new mongoose.Schema({
     required: [true, 'A question must have a body'],
     maxlength: [5000, 'Body must be less or equal than 5000 characters']
   },
-  author: {
-    type: mongoose.Schema.ObjectId,
-    ref: 'User',
-    required: [true, 'Question must belong to a user']
+  authorName: {
+    type: String,
+    default: 'Anonymous',
+    maxlength: [60, 'Name must be less or equal than 60 characters']
   },
   state: {
     type: String,
@@ -29,12 +29,10 @@ const questionSchema = new mongoose.Schema({
     type: [String],
     validate: [val => val.length <= 5, 'You can have at most 5 tags']
   },
-  upvotes: [
-    {
-      type: mongoose.Schema.ObjectId,
-      ref: 'User'
-    }
-  ],
+  upvoteCount: {
+    type: Number,
+    default: 0
+  },
   answerCount: {
     type: Number,
     default: 0
@@ -58,5 +56,4 @@ questionSchema.index({ createdAt: -1 });
 questionSchema.plugin(mongoosePaginate);
 
 const Question = mongoose.model('Question', questionSchema);
-
 module.exports = Question;
