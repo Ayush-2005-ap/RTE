@@ -91,10 +91,11 @@ exports.createPublication = catchAsync(async (req, res, next) => {
     return next(new AppError('Please upload a PDF file', 400));
   }
 
-  // 1) Upload PDF to Cloudinary
+  // 1) Upload PDF to Cloudinary as 'raw' to avoid 401/processing errors
   const pdfResult = await uploadToCloudinary(
     req.files.pdf[0].buffer,
-    'rte/publications/pdfs'
+    'rte/publications/pdfs',
+    'raw'
   );
   const pdfUrl = pdfResult.secure_url;
   const pdfPublicId = pdfResult.public_id;
@@ -155,7 +156,8 @@ exports.updatePublication = catchAsync(async (req, res, next) => {
     }
     const pdfResult = await uploadToCloudinary(
       req.files.pdf[0].buffer,
-      'rte/publications/pdfs'
+      'rte/publications/pdfs',
+      'raw'
     );
     publication.pdfUrl = pdfResult.secure_url;
     publication.pdfPublicId = pdfResult.public_id;
