@@ -1,15 +1,19 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ArrowLeftIcon, PaperAirplaneIcon, XMarkIcon } from '@heroicons/react/24/outline'
+import api from '../../services/api'
+import { toast } from 'react-hot-toast'
 
 const states = ['Maharashtra','Delhi','Karnataka','Kerala','Tamil Nadu','Uttar Pradesh','Gujarat','West Bengal','Rajasthan','Madhya Pradesh','Bihar','Other']
 const categories = ['Admissions','Fees & Charges','Infrastructure','Teachers','Rights','General']
 
 export default function AskQuestionPage() {
-  const [form, setForm] = useState({ title: '', body: '', state: '', category: '' })
+  const navigate = useNavigate()
+  const [form, setForm] = useState({ title: '', body: '', state: '', category: '', authorName: '' })
   const [tags, setTags] = useState([])
   const [tagInput, setTagInput] = useState('')
+  const [loading, setLoading] = useState(false)
 
   const addTag = (e) => {
     if ((e.key === 'Enter' || e.key === ',') && tagInput.trim()) {
@@ -18,6 +22,22 @@ export default function AskQuestionPage() {
         setTags([...tags, tagInput.trim()])
       }
       setTagInput('')
+    }
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!form.title || !form.body) return toast.error('Please fill required fields')
+
+    try {
+      setLoading(true)
+      await api.post('/questions', { ...form, tags })
+      toast.success('Question posted successfully!')
+      navigate('/community/questions')
+    } catch {
+      toast.error('Failed to post question. Please try again.')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -34,7 +54,15 @@ export default function AskQuestionPage() {
               <h1 className="text-h2 font-display mb-1" style={{ color: '#1A2744' }}>Ask a Question</h1>
               <p className="text-sm text-muted mb-8">Be specific — detailed questions get better answers.</p>
 
-              <form onSubmit={e => e.preventDefault()} className="space-y-6">
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div>
+                  <label className="block text-sm font-semibold text-ink mb-1.5">Your Name (Optional)</label>
+                  <input type="text" placeholder="Anonymous"
+                    value={form.authorName}
+                    onChange={e => setForm({ ...form, authorName: e.target.value })}
+                    className="input-rte"
+                  />
+                </div>
                 <div>
                   <label className="block text-sm font-semibold text-ink mb-1.5">Question title <span style={{ color: '#C62828' }}>*</span></label>
                   <input type="text" placeholder="e.g. Can a private school charge donation fees from RTE students?"
@@ -95,8 +123,8 @@ export default function AskQuestionPage() {
 
                 <div className="flex items-center justify-between pt-2">
                   <Link to="/community/questions" className="btn-secondary text-sm px-5 py-2.5">Cancel</Link>
-                  <button type="submit" className="btn-primary flex items-center gap-2">
-                    <PaperAirplaneIcon className="w-4 h-4" /> Post Question
+                  <button type="submit" disabled={loading} className="btn-primary flex items-center gap-2">
+                    <PaperAirplaneIcon className="w-4 h-4" /> {loading ? 'Posting...' : 'Post Question'}
                   </button>
                 </div>
               </form>

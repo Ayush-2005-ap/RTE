@@ -50,11 +50,7 @@ export default function App() {
             {/* Community */}
             <Route path="/community/questions" element={<QuestionsListPage />} />
             <Route path="/community/questions/:id" element={<QuestionDetailPage />} />
-            <Route path="/community/ask" element={
-              <ProtectedRoute>
-                <AskQuestionPage />
-              </ProtectedRoute>
-            } />
+            <Route path="/community/ask" element={<AskQuestionPage />} />
             <Route path="/community/discussions" element={<DiscussionsPage />} />
 
             {/* News */}

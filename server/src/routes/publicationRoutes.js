@@ -9,7 +9,7 @@ const router = express.Router();
 // Public routes
 router.get('/', publicationController.getAllPublications);
 router.get('/:id', publicationController.getPublication);
-router.post('/:id/download', publicationController.trackDownload);
+router.get('/:id/download', publicationController.trackDownload);
 
 // Admin routes (protected)
 router.use(authGuard);
