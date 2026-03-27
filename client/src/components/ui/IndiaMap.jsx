@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import * as d3 from 'd3'
-import * as topojson from 'topojson-client'
 
 // ─── Color helpers ─────────────────────────────────────────────────────────────
 function getScoreColor(score) {
@@ -13,157 +12,258 @@ function getScoreColor(score) {
 }
 
 function normalizeStateName(name) {
-  return (name || '').toLowerCase().trim()
+  if (!name) return ''
+  // Standardize to lowercase, replace punctuation with spaces, collapse extra spaces
+  let n = name.toLowerCase()
+    .replace(/[&\-,\/]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  
+  // Hand-tuned fuzzy aliases to match SVG text vs Database names
+  if (n.includes('jammu') && n.includes('kashmir')) return 'jammu and kashmir'
+  if (n === 'orissa') return 'odisha'
+  // Common misspellings for Uttarakhand
+  if (n === 'uttrakhand' || n === 'uttarakhand' || n === 'uttaranchal') return 'uttarakhand'
+  // Handles multi-line split text from SVG and database variations
+  if (n.includes('dadra') && n.includes('haveli')) return 'dadra and nagar haveli'
+  if (n.includes('daman') && n.includes('diu')) return 'daman and diu'
+  if (n.includes('andaman') && n.includes('nicobar')) return 'andaman and nicobar islands'
+  if (n === 'pondy' || n === 'pondicherry') return 'puducherry'
+
+  return n
 }
 
 function buildStateLookup(statesData) {
   const lookup = {}
+  if (!Array.isArray(statesData)) return lookup
   statesData.forEach(s => {
-    if (s.name) lookup[normalizeStateName(s.name)] = s
+    if (s && s.name) {
+      const norm = normalizeStateName(s.name)
+      lookup[norm] = s
+    }
   })
   return lookup
 }
 
-const ABBREV = {
-  'Andhra Pradesh': 'AP', 'Arunachal Pradesh': 'AR', 'Assam': 'AS',
-  'Bihar': 'BR', 'Chhattisgarh': 'CG', 'Goa': 'GA', 'Gujarat': 'GJ',
-  'Haryana': 'HR', 'Himachal Pradesh': 'HP', 'Jharkhand': 'JH',
-  'Karnataka': 'KA', 'Kerala': 'KL', 'Madhya Pradesh': 'MP',
-  'Maharashtra': 'MH', 'Manipur': 'MN', 'Meghalaya': 'ML',
-  'Mizoram': 'MZ', 'Nagaland': 'NL', 'Orissa': 'OD', 'Odisha': 'OD',
-  'Punjab': 'PB', 'Rajasthan': 'RJ', 'Sikkim': 'SK', 'Tamil Nadu': 'TN',
-  'Telangana': 'TS', 'Tripura': 'TR', 'Uttar Pradesh': 'UP',
-  'Uttaranchal': 'UK', 'Uttarakhand': 'UK', 'West Bengal': 'WB',
-  'Delhi': 'DL', 'Jammu and Kashmir': 'J&K', 'Ladakh': 'LA',
-  'Chandigarh': 'CH', 'Puducherry': 'PY',
-}
-
-const W = 600
-const H = 680
-
 export default function IndiaMap({ statesData = [], onStateClick }) {
-  const svgRef = useRef(null)
   const wrapperRef = useRef(null)
-  const [topoData, setTopoData] = useState(null)
-  const [tooltip, setTooltip] = useState(null) // { x,y,stateName,stateData }
+  const svgContainerRef = useRef(null)
+  
+  const [svgDoc, setSvgDoc] = useState(null)
+  const [tooltip, setTooltip] = useState(null) // { x,y,stateName,stateData, svgW, svgH }
   const [error, setError] = useState(false)
 
-  // 1. Load TopoJSON once
+  // 1. Load the Official Map SVG once
   useEffect(() => {
-    d3.json('/india-states.topo.json')
-      .then(d => setTopoData(d))
+    d3.xml('/india-map-en.svg')
+      .then(xml => setSvgDoc(xml))
       .catch(() => setError(true))
   }, [])
 
-  // 2. Draw map whenever topoData or statesData changes
+  // 2. Draw map whenever svgDoc or statesData changes
   useEffect(() => {
-    if (!topoData || !svgRef.current) return
+    if (!svgDoc || !svgContainerRef.current) return
 
     const lookup = buildStateLookup(statesData)
-    const svg = d3.select(svgRef.current)
-    svg.selectAll('*').remove()
+    const container = d3.select(svgContainerRef.current)
+    container.selectAll('*').remove()
 
-    // Extract features from TopoJSON
-    const key = Object.keys(topoData.objects)[0]
-    const allFeatures = topojson.feature(topoData, topoData.objects[key]).features
+    // Import the deeply nested SVG document into the DOM
+    const importedNode = document.importNode(svgDoc.documentElement, true)
+    container.node().appendChild(importedNode)
 
-    // Exclude island territories that are geographically far and would shrink the mainland
-    // Andaman & Nicobar: ~93°E far east, Lakshadweep: off west coast
-    const EXCLUDE_STATES = ['andaman', 'lakshadweep', 'daman', 'dadra']
-    const features = allFeatures.filter(f => {
-      const name = normalizeStateName(f.properties?.NAME_1 || '')
-      return !EXCLUDE_STATES.some(ex => name.startsWith(ex))
-    })
+    const svg = container.select('svg')
+    // Read the original dimensions to create a proper viewBox, as the Wikimedia SVG lacks it
+    const origW = parseFloat(svg.attr('width')) || 1519
+    const origH = parseFloat(svg.attr('height')) || 1773
 
-    // Fit the projection to cover all remaining (mainland + nearby) features
-    const projection = d3.geoMercator()
-      .fitExtent([[8, 8], [W - 8, H - 8]], {
-        type: 'FeatureCollection',
-        features,
+    // Make the SVG scale perfectly within the wrapper
+    svg.attr('viewBox', `0 0 ${origW} ${origH}`)
+       .attr('preserveAspectRatio', 'xMidYMid meet')
+       .attr('width', '100%')
+       .attr('height', '100%')
+       .style('display', 'block')
+
+    // Optional: Hide the Malayalam regional language layer
+    svg.select('#layer38').style('display', 'none')
+
+    // Delay the layout-dependent calculations to ensure the SVG is painted by the browser
+    setTimeout(() => {
+      // Extract names and physical screen coordinates from layer35 (the text label layer)
+      const labels = []
+      const layer35Node = svg.select('#layer35').node()
+      
+      svg.select('#layer35').selectAll('switch').each(function () {
+        const sw = d3.select(this)
+        const texts = sw.selectAll('text').nodes()
+        const enText = texts.find(n => !n.hasAttribute('systemLanguage')) || texts[0]
+        
+        if (enText) {
+          let name = ''
+          d3.select(enText).selectAll('tspan').each(function() {
+            name += d3.select(this).text() + ' '
+          })
+          // Collapse multiple spaces from newlines or multi-tspan into single space
+          name = name.replace(/\s+/g, ' ').trim()
+
+          const rect = enText.getBoundingClientRect()
+          if (name && rect && rect.width > 0) {
+            const cx = rect.left + rect.width / 2
+            const cy = rect.top + rect.height / 2
+            labels.push({ cx, cy, name })
+          }
+        }
       })
 
-    const path = d3.geoPath().projection(projection)
-
-    const pathsG = svg.append('g')  // paths layer (bottom)
-    const labelsG = svg.append('g') // labels layer (always on top)
-
-    // ── State shapes (bottom layer) ───────────────────────────────────────────
-    pathsG.selectAll('path')
-      .data(features)
-      .join('path')
-      .attr('d', path)
-      .attr('fill', d => {
-        const name = normalizeStateName(d.properties?.NAME_1 || '')
-        return getScoreColor(lookup[name]?.complianceScore).fill
+      // Skip massive paths (e.g. background/outline artifacts)
+      svg.selectAll('g[id^="layer"]').each(function () {
+        const id = d3.select(this).attr('id')
+        if (id === 'layer35' || id === 'layer38') return
+        const rect = this.getBoundingClientRect()
+        const area = rect.width * rect.height
+        // If layer covers more than 60% of the SVG wrapper, disable it
+        const svgRect = svgContainerRef.current.getBoundingClientRect()
+        if (area > (svgRect.width * svgRect.height) * 0.6) {
+            d3.select(this).style('pointer-events', 'none').style('fill', 'none')
+        }
       })
-      .attr('stroke', '#1A2744')
-      .attr('stroke-width', 0.6)
-      .style('cursor', 'pointer')
-      .on('mouseenter', function (event, d) {
-        const stateName = d.properties?.NAME_1 || 'Unknown'
-        const sd = lookup[normalizeStateName(stateName)]
 
-        // Change style without .raise() — labels are in a separate group on top
+      const mapping = {}
+
+      // Temporarily hide the text layer so we can hit-test the physical state boundaries behind it!
+      if (layer35Node) {
+        layer35Node.style.display = 'none'
+      }
+
+      const layersInfo = [];
+      svg.selectAll('g[id^="layer"]').each(function () {
+        const id = d3.select(this).attr('id');
+        if (id === 'layer35' || id === 'layer38') return;
+        const rect = this.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          layersInfo.push({ id, cx: rect.left + rect.width / 2, cy: rect.top + rect.height / 2 });
+        }
+      });
+
+      const pairs = [];
+      labels.forEach(l => {
+        const sampleOffsets = [
+          {dx: 0, dy: 0},
+          {dx: -10, dy: -10}, {dx: 10, dy: -10},
+          {dx: -10, dy: 10}, {dx: 10, dy: 10},
+          {dx: -15, dy: 0}, {dx: 15, dy: 0},
+          {dx: 0, dy: -15}, {dx: 0, dy: 15}
+        ];
+        
+        const hitIds = new Set();
+        sampleOffsets.forEach(off => {
+          const x = l.cx + off.dx;
+          const y = l.cy + off.dy;
+          const elems = document.elementsFromPoint(x, y);
+          elems.forEach(e => {
+            const parent = e.closest('g[id^="layer"]');
+            if (parent && parent.id !== 'layer35' && parent.id !== 'layer38' && parent.style.pointerEvents !== 'none') {
+               hitIds.add(parent.id);
+            }
+          });
+        });
+
+        layersInfo.forEach(ly => {
+           let dist = Math.hypot(ly.cx - l.cx, ly.cy - l.cy);
+           let score = dist;
+           if (hitIds.has(ly.id)) {
+               score = dist * 0.0001; // huge bonus if it physically overlays the state
+           }
+           pairs.push({ label: l.name, layer: ly.id, score });
+        });
+      });
+
+      // 1-to-1 Greedy Match: Assign smallest scores first, avoiding any overlap/collision
+      pairs.sort((a, b) => a.score - b.score);
+      const usedLabels = new Set();
+      const usedLayers = new Set();
+      
+      pairs.forEach(p => {
+          if (!usedLabels.has(p.label) && !usedLayers.has(p.layer)) {
+              mapping[p.layer] = p.label;
+              usedLabels.add(p.label);
+              usedLayers.add(p.layer);
+          }
+      });
+
+      // Restore the text layer
+      if (layer35Node) {
+        layer35Node.style.display = ''
+      }
+      svg.selectAll('g[id^="layer"]').each(function () {
+        const id = d3.select(this).attr('id')
+        if (id === 'layer35' || id === 'layer38') return
+
+        const stateName = mapping[id]
+        if (!stateName) return
+
+        const normalized = normalizeStateName(stateName)
+        const sd = lookup[normalized]
+        const score = sd?.complianceScore !== undefined && sd?.complianceScore !== null ? Number(sd.complianceScore) : null
+        // Preserve original SVG colors; do not override fill or stroke
+        const shapes = d3.select(this).selectAll('path, polygon, polyline')
+        
+        // Attach data attributes for later use (state name and compliance score)
+        shapes.attr('data-state-name', normalized)
+        if (score !== null) {
+          shapes.attr('data-score', score)
+        }
+        // No fill or stroke changes here – keep the map's native colors
+        
+        // Attach interaction events directly to the group layer
         d3.select(this)
-          .attr('fill', getScoreColor(sd?.complianceScore).border)
-          .attr('stroke', '#ffffff')
-          .attr('stroke-width', 1.5)
+          .style('cursor', 'pointer')
+          .style('transition', 'all 0.15s ease')
+          .on('mouseenter', function (event) {
+            // Highlight on hover with a subtle white outline
+            shapes.attr('stroke', '#ffffff')
+                  .attr('stroke-width', 3)
+            
+            // Also ensure layer35 is re-raised so text stays on very top
+            const layer35 = document.getElementById('layer35')
+            if (layer35) layer35.parentNode.appendChild(layer35)
 
-        // Convert mouse position → SVG coordinate space
-        const rect = svgRef.current.getBoundingClientRect()
-        const scaleX = W / rect.width
-        const scaleY = H / rect.height
-        const mx = (event.clientX - rect.left) * scaleX
-        const my = (event.clientY - rect.top) * scaleY
+            const rect = wrapperRef.current.getBoundingClientRect()
+            const mx = event.clientX - rect.left
+            const my = event.clientY - rect.top
+            setTooltip({ x: mx, y: my, stateName, stateData: sd, svgW: rect.width, svgH: rect.height })
+          })
+          .on('mousemove', function (event) {
+            const rect = wrapperRef.current.getBoundingClientRect()
+            const mx = event.clientX - rect.left
+            const my = event.clientY - rect.top
+            setTooltip(prev => prev ? { ...prev, x: mx, y: my } : prev)
+          })
+          .on('mouseleave', function (event) {
+            // Remove hover outline, restore original stroke (by clearing overrides)
+            shapes.attr('stroke', null)
+                  .attr('stroke-width', null)
+            setTooltip(null)
+          })
+          .on('click', function (event) {
+            if (onStateClick && sd?.slug) onStateClick(sd.slug)
+          })
+      })
+      
+      // Fix text labels visually
+      svg.select('#layer35')
+        .style('pointer-events', 'none')
+        .selectAll('text')
+        .each(function() {
+          d3.select(this)
+           .style('font-family', '"DM Sans", "Inter", sans-serif')
+           .style('font-size', '25px')
+           .style('font-weight', '800')
+           .attr('fill', '#ffffff')
+        })
+    }, 50)
 
-        setTooltip({ x: mx, y: my, stateName, stateData: sd })
-      })
-      .on('mousemove', function (event) {
-        const rect = svgRef.current.getBoundingClientRect()
-        const scaleX = W / rect.width
-        const scaleY = H / rect.height
-        const mx = (event.clientX - rect.left) * scaleX
-        const my = (event.clientY - rect.top) * scaleY
-        setTooltip(prev => prev ? { ...prev, x: mx, y: my } : prev)
-      })
-      .on('mouseleave', function (event, d) {
-        const name = normalizeStateName(d.properties?.NAME_1 || '')
-        d3.select(this)
-          .attr('fill', getScoreColor(lookup[name]?.complianceScore).fill)
-          .attr('stroke', '#1A2744')
-          .attr('stroke-width', 0.6)
-        setTooltip(null)
-      })
-      .on('click', function (event, d) {
-        const name = normalizeStateName(d.properties?.NAME_1 || '')
-        const sd = lookup[name]
-        if (onStateClick && sd?.slug) onStateClick(sd.slug)
-      })
-
-    // ── State abbreviation labels (top layer — never covered by hovered paths) ─
-    labelsG.selectAll('text')
-      .data(features)
-      .join('text')
-      .attr('transform', d => {
-        const [cx, cy] = path.centroid(d)
-        return `translate(${cx},${cy})`
-      })
-      .attr('text-anchor', 'middle')
-      .attr('dominant-baseline', 'middle')
-      .attr('font-size', 8)
-      .attr('font-family', 'DM Sans, Inter, sans-serif')
-      .attr('fill', 'rgba(255,255,255,0.92)')
-      .attr('font-weight', '700')
-      .attr('pointer-events', 'none') // labels don't intercept mouse events
-      .attr('letter-spacing', '0.5')
-      .text(d => {
-        const name = d.properties?.NAME_1 || ''
-        const area = path.area(d)
-        // Only label states large enough to show text
-        if (area < 800) return ''
-        return ABBREV[name] || name.split(' ').map(w => w[0]).join('')
-      })
-  }, [topoData, statesData])
+  }, [svgDoc, statesData])
 
   if (error) return (
     <div className="flex items-center justify-center h-64 text-white/40 text-sm">
@@ -171,27 +271,24 @@ export default function IndiaMap({ statesData = [], onStateClick }) {
     </div>
   )
 
-  if (!topoData) return (
+  if (!svgDoc) return (
     <div className="flex items-center justify-center h-64">
       <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />
     </div>
   )
 
   return (
-    // wrapperRef tracks the rendered SVG size for tooltip positioning
     <div ref={wrapperRef} className="relative w-full" style={{ lineHeight: 0 }}>
-      <svg
-        ref={svgRef}
-        viewBox={`0 0 ${W} ${H}`}
-        preserveAspectRatio="xMidYMid meet"
-        style={{ width: '100%', height: 'auto', display: 'block' }}
-      />
+      {/* Container for the injected SVG */}
+      <div ref={svgContainerRef} className="w-full h-auto" />
 
-      {/* Tooltip — positioned in SVG-coordinate space via % */}
+      {/* Tooltip */}
       {tooltip && (
         <MapTooltip
           x={tooltip.x}
           y={tooltip.y}
+          svgW={tooltip.svgW}
+          svgH={tooltip.svgH}
           stateName={tooltip.stateName}
           stateData={tooltip.stateData}
         />
@@ -200,16 +297,17 @@ export default function IndiaMap({ statesData = [], onStateClick }) {
   )
 }
 
-// ─── Tooltip ───────────────────────────────────────────────────────────────────
-function MapTooltip({ x, y, stateName, stateData }) {
-  const score = stateData?.complianceScore
+function MapTooltip({ x, y, svgW, svgH, stateName, stateData }) {
+  const score = stateData?.complianceScore !== undefined && stateData?.complianceScore !== null 
+                ? Number(stateData.complianceScore) 
+                : null
   const c = getScoreColor(score)
 
-  // Convert SVG-space coords (0–W, 0–H) to % for positioning inside the container
-  const leftPct = (x / W) * 100
-  const topPct = (y / H) * 100
+  // Use component sizes for percentages
+  const leftPct = (x / svgW) * 100
+  const topPct = (y / svgH) * 100
 
-  // Flip to keep tooltip inside
+  // Flip tooltip if close to the edge
   const flipX = leftPct > 60
   const flipY = topPct > 68
 
@@ -232,14 +330,13 @@ function MapTooltip({ x, y, stateName, stateData }) {
     >
       <div
         style={{
-          background: 'rgba(10,18,44,0.96)',
+          background: 'rgba(16, 28, 62, 0.96)',
           border: `1.5px solid ${c.border}`,
           borderRadius: 12,
           overflow: 'hidden',
           boxShadow: `0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05)`,
         }}
       >
-        {/* Accent top bar */}
         <div style={{ height: 3, background: c.border }} />
 
         <div style={{ padding: '10px 12px 12px' }}>
@@ -276,7 +373,7 @@ function MapTooltip({ x, y, stateName, stateData }) {
               )}
               {stateData?.slug && (
                 <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: '#E8872A' }}>Click to view details →</span>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: '#E8872A' }}>Click to view !</span>
                 </div>
               )}
             </>

@@ -63,7 +63,7 @@ export default function StatesListPage() {
       </div>
 
       {/* Interactive India Map + Rankings */}
-      <div className="py-12 px-4" style={{ background: '#F5EFE0', minHeight: 'calc(100vh - 64px)' }}>
+      <div className="py-12 px-4" style={{ background: '#faefd4ff', minHeight: 'calc(100vh - 64px)' }}>
         <div className="max-w-7xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -82,7 +82,7 @@ export default function StatesListPage() {
 
               <div
                 className="rounded-2xl overflow-hidden shadow-xl"
-                style={{ background: 'linear-gradient(160deg, #0D1729 0%, #1A2744 100%)', padding: '12px 10px 8px' }}
+                style={{ background: 'rgba(255, 248, 221, 1)', padding: '12px 10px 8px' }}
               >
                 <IndiaMap
                   statesData={statesData}
