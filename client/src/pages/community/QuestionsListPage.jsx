@@ -1,27 +1,40 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { MagnifyingGlassIcon, ChevronUpIcon, ChatBubbleLeftRightIcon, CheckBadgeIcon, FunnelIcon } from '@heroicons/react/24/outline'
-
-const questions = [
-  { id: 1, title: 'Can a private unaided school deny admission to a child from EWS category even if they have reserved seats?', body: 'We applied for RTE admission in a private school in Maharashtra but were denied. The school claims their quota is full already.', author: 'Priya M.', state: 'Maharashtra', category: 'Admissions', tags: ['EWS', 'private school', 'admission'], answers: 7, upvotes: 24, status: 'answered', createdAt: '2 days ago' },
-  { id: 2, title: 'What documents are required for RTE admission in Karnataka? The school asked for Aadhaar but we don\'t have one.', body: '', author: 'Suresh K.', state: 'Karnataka', category: 'Admissions', tags: ['documents', 'aadhaar', 'Karnataka'], answers: 4, upvotes: 18, status: 'open', createdAt: '4 days ago' },
-  { id: 3, title: 'Is a school allowed to charge uniform fees from RTE students? Our school is demanding ₹1,200 annually.', body: '', author: 'Anita R.', state: 'Delhi', category: 'Fees & Charges', tags: ['uniform', 'fees', 'illegal charges'], answers: 12, upvotes: 47, status: 'answered', createdAt: '1 week ago' },
-  { id: 5, title: 'Can the government school transfer an RTE admitted child mid-year to another school?', body: '', author: 'Meena T.', state: 'Tamil Nadu', category: 'Admissions', tags: ['transfer', 'mid-year'], answers: 0, upvotes: 5, status: 'open', createdAt: '5 hours ago' },
-]
+import { MagnifyingGlassIcon, ChevronUpIcon, ChatBubbleLeftRightIcon, CheckBadgeIcon } from '@heroicons/react/24/outline'
+import api from '../../services/api'
+import { formatDistanceToNow } from 'date-fns'
 
 const categories = ['All', 'Admissions', 'Fees & Charges', 'Infrastructure', 'Teachers', 'Rights']
 
 export default function QuestionsListPage() {
+  const [questions, setQuestions] = useState([])
+  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('All')
   const [status, setStatus] = useState('all')
 
-  const filtered = questions.filter(q =>
-    q.title.toLowerCase().includes(search.toLowerCase()) &&
-    (category === 'All' || q.category === category) &&
-    (status === 'all' || q.status === status)
-  )
+  useEffect(() => {
+    const fetchQuestions = async () => {
+      try {
+        setLoading(true)
+        let url = `/questions?limit=50`
+        if (category !== 'All') url += `&category=${category}`
+        if (status !== 'all') url += `&status=${status}`
+        if (search) url += `&search=${search}`
+        
+        const res = await api.get(url)
+        setQuestions(res.data.data.questions)
+      } catch (err) {
+        console.error('Error fetching questions:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    const timer = setTimeout(fetchQuestions, search ? 500 : 0)
+    return () => clearTimeout(timer)
+  }, [category, status, search])
 
   return (
     <div style={{ paddingTop: '64px' }}>
@@ -75,49 +88,55 @@ export default function QuestionsListPage() {
       </div>
 
       {/* Questions */}
-      <div className="py-8 px-4" style={{ background: '#F5EFE0' }}>
+      <div className="py-8 px-4" style={{ background: '#F5EFE0', minHeight: '60vh' }}>
         <div className="max-w-4xl mx-auto space-y-4">
-          {filtered.map((q, i) => (
-            <motion.div key={q.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}>
-              <Link to={`/community/questions/${q.id}`}>
-                <div className="bg-white rounded-2xl p-5 card-hover border" style={{ borderColor: 'rgba(26,39,68,0.07)' }}>
-                  <div className="flex gap-4">
-                    {/* Vote column */}
-                    <div className="flex flex-col items-center gap-1 pt-1 min-w-[40px]">
-                      <ChevronUpIcon className="w-5 h-5 text-muted" />
-                      <span className="font-bold text-sm" style={{ color: '#1A2744' }}>{q.upvotes}</span>
-                    </div>
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap gap-2 mb-2">
-                        <span className="badge-navy text-xs">{q.state}</span>
-                        <span className="badge-saffron text-xs">{q.category}</span>
-                        {q.status === 'answered' && (
-                          <span className="badge-success text-xs flex items-center gap-1">
-                            <CheckBadgeIcon className="w-3 h-3" /> Answered
-                          </span>
-                        )}
+          {loading ? (
+            <div className="flex justify-center py-20">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-navy"></div>
+            </div>
+          ) : (
+            questions.map((q, i) => (
+              <motion.div key={q._id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}>
+                <Link to={`/community/questions/${q._id}`}>
+                  <div className="bg-white rounded-2xl p-5 card-hover border" style={{ borderColor: 'rgba(26,39,68,0.07)' }}>
+                    <div className="flex gap-4">
+                      {/* Vote column */}
+                      <div className="flex flex-col items-center gap-1 pt-1 min-w-[40px]">
+                        <ChevronUpIcon className="w-5 h-5 text-muted" />
+                        <span className="font-bold text-sm" style={{ color: '#1A2744' }}>{q.upvoteCount}</span>
                       </div>
-                      <h3 className="font-semibold text-ink leading-snug mb-2 line-clamp-2">{q.title}</h3>
-                      <div className="flex flex-wrap items-center gap-3 text-xs text-muted">
-                        <span className="flex items-center gap-1">
-                          <ChatBubbleLeftRightIcon className="w-3.5 h-3.5" /> {q.answers} {q.answers === 1 ? 'answer' : 'answers'}
-                        </span>
-                        <span>by {q.author}</span>
-                        <span>{q.createdAt}</span>
-                        {q.tags.map(t => (
-                          <span key={t} className="px-2 py-0.5 rounded-full text-xs" style={{ background: 'rgba(26,39,68,0.06)', color: '#1A2744' }}>
-                            #{t}
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap gap-2 mb-2">
+                          <span className="badge-navy text-xs">{q.state}</span>
+                          <span className="badge-saffron text-xs">{q.category}</span>
+                          {q.status === 'answered' && (
+                            <span className="badge-success text-xs flex items-center gap-1">
+                              <CheckBadgeIcon className="w-3 h-3" /> Answered
+                            </span>
+                          )}
+                        </div>
+                        <h3 className="font-semibold text-ink leading-snug mb-2 line-clamp-2">{q.title}</h3>
+                        <div className="flex flex-wrap items-center gap-3 text-xs text-muted">
+                          <span className="flex items-center gap-1">
+                            <ChatBubbleLeftRightIcon className="w-3.5 h-3.5" /> {q.answerCount} {q.answerCount === 1 ? 'answer' : 'answers'}
                           </span>
-                        ))}
+                          <span>by {q.authorName}</span>
+                          <span>{formatDistanceToNow(new Date(q.createdAt), { addSuffix: true })}</span>
+                          {q.tags?.map(t => (
+                            <span key={t} className="px-2 py-0.5 rounded-full text-xs" style={{ background: 'rgba(26,39,68,0.06)', color: '#1A2744' }}>
+                              #{t}
+                            </span>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              </Link>
-            </motion.div>
-          ))}
-          {filtered.length === 0 && (
+                </Link>
+              </motion.div>
+            ))
+          )}
+          {!loading && questions.length === 0 && (
             <div className="text-center py-20 text-muted">
               <p className="text-lg mb-2">No questions found.</p>
               <Link to="/community/ask" className="btn-primary mt-2 inline-flex">Ask the first question</Link>

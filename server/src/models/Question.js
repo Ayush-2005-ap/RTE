@@ -23,7 +23,8 @@ const questionSchema = new mongoose.Schema({
   },
   category: {
     type: String,
-    enum: ['25-reservation', 'admissions', 'teachers', 'curriculum', 'infrastructure', 'mid-day-meal', 'recognition', 'budget', 'other']
+    enum: ['Admissions', 'Fees & Charges', 'Infrastructure', 'Teachers', 'Rights', 'General', '25-reservation', 'curriculum', 'mid-day-meal', 'recognition', 'budget', 'other'],
+    default: 'General'
   },
   tags: {
     type: [String],
