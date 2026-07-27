@@ -1,0 +1,254 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id                String       @id @default(uuid())
+  name              String       @db.VarChar(60)
+  email             String       @unique
+  role              String       @default("citizen") // 'citizen', 'moderator', 'admin'
+  userType          String?      // 'parent', 'teacher', 'student', 'ngo', 'researcher', 'other'
+  state             String?
+  isVerified        Boolean      @default(false)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  newsAdded         News[]       @relation("NewsAddedBy")
+  blogPosts         BlogPost[]
+  publications      Publication[]
+  grievances        Grievance[]
+  sliderSlides      SliderSlide[]
+  discussions       Discussion[]
+  documents         Document[]
+  stateContents     StateContent[]
+  adminNotes        GrievanceAdminNote[]
+}
+
+model News {
+  id                String       @id @default(uuid())
+  title             String
+  summary           String       @db.VarChar(1000)
+  body              String?
+  source            String
+  sourceUrl         String
+  imageUrl          String?
+  imagePublicId     String?
+  state             String       @default("All India")
+  category          String       @default("other")
+  publishedAt       DateTime     @default(now())
+  addedById         String?
+  addedBy           User?        @relation("NewsAddedBy", fields: [addedById], references: [id], onDelete: SetNull)
+  commentCount      Int          @default(0)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+}
+
+model BlogPost {
+  id                String       @id @default(uuid())
+  title             String
+  slug              String       @unique
+  body              String
+  excerpt           String?      @db.VarChar(500)
+  authorId          String?
+  author            User?        @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  featuredImageUrl  String?
+  featuredImageId   String?
+  tags              String[]
+  isFeatured        Boolean      @default(false)
+  status            String       @default("draft") // draft, published
+  publishedAt       DateTime?
+  commentCount      Int          @default(0)
+  viewCount         Int          @default(0)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+}
+
+model Publication {
+  id                String       @id @default(uuid())
+  title             String
+  description       String       @db.VarChar(1000)
+  pdfUrl            String
+  pdfPublicId       String?
+  thumbnailUrl      String?
+  thumbnailPublicId String?
+  category          String       @default("other")
+  tags              String[]
+  publishedAt       DateTime     @default(now())
+  uploadedById      String?
+  uploadedBy        User?        @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  downloadCount     Int          @default(0)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+}
+
+model Question {
+  id                String       @id @default(uuid())
+  title             String       @db.VarChar(200)
+  body              String       @db.VarChar(5000)
+  authorName        String       @default("Anonymous") @db.VarChar(60)
+  state             String       @default("All India")
+  category          String       @default("General")
+  tags              String[]
+  upvoteCount       Int          @default(0)
+  answerCount       Int          @default(0)
+  status            String       @default("open") // open, answered, closed
+  views             Int          @default(0)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  answers           Answer[]
+}
+
+model Answer {
+  id                String       @id @default(uuid())
+  questionId        String
+  question          Question     @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  body              String       @db.VarChar(10000)
+  authorName        String       @default("Anonymous") @db.VarChar(60)
+  upvoteCount       Int          @default(0)
+  isVerified        Boolean      @default(false)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+}
+
+model Grievance {
+  id                String       @id @default(uuid())
+  refNumber         String       @unique
+  authorId          String
+  author            User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  userType          String?
+  state             String
+  category          String
+  description       String       @db.VarChar(5000)
+  status            String       @default("filed") // filed, reviewing, resolved, escalated
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  attachments       GrievanceAttachment[]
+  adminNotes        GrievanceAdminNote[]
+}
+
+model GrievanceAttachment {
+  id                String       @id @default(uuid())
+  grievanceId       String
+  grievance         Grievance    @relation(fields: [grievanceId], references: [id], onDelete: Cascade)
+  url               String
+  publicId          String
+  filename          String
+}
+
+model GrievanceAdminNote {
+  id                String       @id @default(uuid())
+  grievanceId       String
+  grievance         Grievance    @relation(fields: [grievanceId], references: [id], onDelete: Cascade)
+  note              String
+  addedById         String?
+  addedBy           User?        @relation(fields: [addedById], references: [id], onDelete: SetNull)
+  addedAt           DateTime     @default(now())
+}
+
+model SliderSlide {
+  id                String       @id @default(uuid())
+  order             Int          @default(0)
+  leftImageUrl      String
+  leftImagePublicId String?
+  leftCategory      String
+  leftReadTime      String       @default("3 Min Read")
+  leftTitle         String
+  leftDesc          String       @db.VarChar(600)
+  leftLink          String       @default("#")
+  rightLabel        String
+  rightTitle        String
+  rightDesc         String       @db.VarChar(600)
+  isActive          Boolean      @default(true)
+  createdById       String?
+  createdBy         User?        @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+}
+
+model LandingBook {
+  id                String       @id @default(uuid())
+  order             Int          @default(0)
+  type              String       // 'contents', 'chapter'
+  title             String
+  desc              String?
+  items             String[]
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+}
+
+model Discussion {
+  id                String       @id @default(uuid())
+  title             String
+  body              String
+  authorId          String
+  author            User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  category          String?
+  isPinned          Boolean      @default(false)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+}
+
+model Comment {
+  id                String       @id @default(uuid())
+  contentType       String       // 'blog', 'news'
+  contentId         String       // ID of the content
+  authorName        String       @db.VarChar(60)
+  body              String       @db.VarChar(2000)
+  isApproved        Boolean      @default(true)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+}
+
+model Document {
+  id                String       @id @default(uuid())
+  title             String
+  fileUrl           String
+  fileType          String?
+  fileSize          Int?
+  uploadedById      String?
+  uploadedBy        User?        @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  associatedStateId String?
+  associatedState   State?       @relation(fields: [associatedStateId], references: [id], onDelete: SetNull)
+  category          String?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+}
+
+model State {
+  id                String       @id @default(uuid())
+  name              String       @unique
+  slug              String       @unique
+  region            String?
+  complianceScore   Int?
+  complianceLabel   String       @default("No Data")
+  keyIssue          String?
+  contactEmail      String?
+  lastUpdated       DateTime?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  documents         Document[]
+  stateContents     StateContent[]
+}
+
+model StateContent {
+  id                String       @id @default(uuid())
+  stateId           String
+  state             State        @relation(fields: [stateId], references: [id], onDelete: Cascade)
+  category          String?
+  title             String
+  date              DateTime?
+  description       String?
+  fileUrl           String?
+  externalUrl       String?
+  tags              String[]
+  addedById         String?
+  addedBy           User?        @relation(fields: [addedById], references: [id], onDelete: SetNull)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+}

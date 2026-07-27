@@ -1,10 +1,11 @@
 const AppError = require('../utils/AppError');
-const { verifyAccessToken } = require('../utils/tokenUtils');
-const User = require('../models/User');
 const catchAsync = require('../utils/catchAsync');
+const supabase = require('../config/supabase');
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 
 module.exports = catchAsync(async (req, res, next) => {
-  // 1) Getting token and check of it's there
+  // 1) Get token from headers
   let token;
   if (
     req.headers.authorization &&
@@ -19,17 +20,21 @@ module.exports = catchAsync(async (req, res, next) => {
     );
   }
 
-  // 2) Verification token
-  const decoded = verifyAccessToken(token);
+  // 2) Verify token with Supabase
+  const { data: { user }, error } = await supabase.auth.getUser(token);
+  
+  if (error || !user) {
+    return next(new AppError('Invalid or expired token. Please log in again.', 401));
+  }
 
-  // 3) Check if user still exists
-  const currentUser = await User.findById(decoded.id).select('+role +isVerified');
+  // 3) Check if user exists in our DB and get role
+  const currentUser = await prisma.user.findUnique({
+    where: { id: user.id }
+  });
+
   if (!currentUser) {
     return next(
-      new AppError(
-        'The user belonging to this token does no longer exist.',
-        401
-      )
+      new AppError('The user belonging to this token no longer exists.', 401)
     );
   }
 

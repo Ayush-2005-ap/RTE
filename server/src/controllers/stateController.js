@@ -1,4 +1,5 @@
-const State = require('../models/State');
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/AppError');
 
@@ -11,7 +12,10 @@ exports.getAllStates = catchAsync(async (req, res, next) => {
   if (req.query.region) filter.region = req.query.region;
   if (req.query.compliance) filter.complianceLabel = req.query.compliance;
 
-  const states = await State.find(filter).sort({ name: 1 });
+  const states = await prisma.state.findMany({
+    where: filter,
+    orderBy: { name: 'asc' }
+  });
 
   res.status(200).json({
     status: 'success',
@@ -24,7 +28,9 @@ exports.getAllStates = catchAsync(async (req, res, next) => {
  * GET /api/v1/states/:slug — Public: get a single state
  */
 exports.getState = catchAsync(async (req, res, next) => {
-  const state = await State.findOne({ slug: req.params.slug });
+  const state = await prisma.state.findUnique({
+    where: { slug: req.params.slug }
+  });
 
   if (!state) {
     return next(new AppError('No state found with that identifier', 404));
@@ -42,15 +48,17 @@ exports.getState = catchAsync(async (req, res, next) => {
 exports.createState = catchAsync(async (req, res, next) => {
   const { name, slug, region, complianceScore, complianceLabel, keyIssue, contactEmail } = req.body;
 
-  const state = await State.create({
-    name,
-    slug: slug || name.toLowerCase().replace(/\s+/g, '-'),
-    region,
-    complianceScore,
-    complianceLabel,
-    keyIssue,
-    contactEmail,
-    lastUpdated: Date.now()
+  const state = await prisma.state.create({
+    data: {
+      name,
+      slug: slug || name.toLowerCase().replace(/\s+/g, '-'),
+      region,
+      complianceScore: complianceScore ? parseInt(complianceScore) : undefined,
+      complianceLabel,
+      keyIssue,
+      contactEmail,
+      lastUpdated: new Date()
+    }
   });
 
   res.status(201).json({
@@ -63,21 +71,25 @@ exports.createState = catchAsync(async (req, res, next) => {
  * PATCH /api/v1/states/:id — Admin: update a state's data
  */
 exports.updateState = catchAsync(async (req, res, next) => {
-  const state = await State.findById(req.params.id);
-  if (!state) {
+  const existing = await prisma.state.findUnique({ where: { id: req.params.id } });
+  
+  if (!existing) {
     return next(new AppError('No state found with that ID', 404));
   }
 
   const { complianceScore, complianceLabel, keyIssue, contactEmail, region } = req.body;
+  const updateData = { lastUpdated: new Date() };
 
-  if (complianceScore !== undefined) state.complianceScore = complianceScore;
-  if (complianceLabel !== undefined) state.complianceLabel = complianceLabel;
-  if (keyIssue !== undefined) state.keyIssue = keyIssue;
-  if (contactEmail !== undefined) state.contactEmail = contactEmail;
-  if (region !== undefined) state.region = region;
-  state.lastUpdated = Date.now();
+  if (complianceScore !== undefined) updateData.complianceScore = parseInt(complianceScore);
+  if (complianceLabel !== undefined) updateData.complianceLabel = complianceLabel;
+  if (keyIssue !== undefined) updateData.keyIssue = keyIssue;
+  if (contactEmail !== undefined) updateData.contactEmail = contactEmail;
+  if (region !== undefined) updateData.region = region;
 
-  await state.save();
+  const state = await prisma.state.update({
+    where: { id: req.params.id },
+    data: updateData
+  });
 
   res.status(200).json({
     status: 'success',
@@ -89,12 +101,13 @@ exports.updateState = catchAsync(async (req, res, next) => {
  * DELETE /api/v1/states/:id — Admin: delete a state entry
  */
 exports.deleteState = catchAsync(async (req, res, next) => {
-  const state = await State.findById(req.params.id);
+  const state = await prisma.state.delete({
+    where: { id: req.params.id }
+  }).catch(() => null);
+
   if (!state) {
     return next(new AppError('No state found with that ID', 404));
   }
-
-  await State.findByIdAndDelete(req.params.id);
 
   res.status(204).json({ status: 'success', data: null });
 });

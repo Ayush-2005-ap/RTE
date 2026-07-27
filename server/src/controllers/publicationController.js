@@ -1,22 +1,8 @@
-const Publication = require('../models/Publication');
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/AppError');
-const cloudinary = require('../config/cloudinary');
-const streamifier = require('streamifier');
-
-// Helper: Upload buffer to Cloudinary (any resource type)
-const uploadToCloudinary = (buffer, folder, resourceType = 'auto') => {
-  return new Promise((resolve, reject) => {
-    const uploadStream = cloudinary.uploader.upload_stream(
-      { folder, resource_type: resourceType },
-      (error, result) => {
-        if (error) reject(error);
-        else resolve(result);
-      }
-    );
-    streamifier.createReadStream(buffer).pipe(uploadStream);
-  });
-};
+const { uploadFromBuffer, deleteFromCloudinary } = require('../services/uploadService');
 
 /**
  * GET /api/v1/publications — Public: list all publications
@@ -28,28 +14,32 @@ exports.getAllPublications = catchAsync(async (req, res, next) => {
 
   if (req.query.category) filter.category = req.query.category;
   if (req.query.search) {
-    filter.$or = [
-      { title: { $regex: req.query.search, $options: 'i' } },
-      { description: { $regex: req.query.search, $options: 'i' } }
+    filter.OR = [
+      { title: { contains: req.query.search, mode: 'insensitive' } },
+      { description: { contains: req.query.search, mode: 'insensitive' } }
     ];
   }
 
-  const options = {
-    page,
-    limit,
-    sort: { publishedAt: -1 },
-    populate: { path: 'uploadedBy', select: 'name' }
-  };
+  const skip = (page - 1) * limit;
 
-  const result = await Publication.paginate(filter, options);
+  const [publications, total] = await Promise.all([
+    prisma.publication.findMany({
+      where: filter,
+      skip,
+      take: limit,
+      orderBy: { publishedAt: 'desc' },
+      include: { uploadedBy: { select: { name: true } } }
+    }),
+    prisma.publication.count({ where: filter })
+  ]);
 
   res.status(200).json({
     status: 'success',
     data: {
-      publications: result.docs,
-      totalPages: result.totalPages,
-      currentPage: result.page,
-      total: result.totalDocs
+      publications,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
+      total
     }
   });
 });
@@ -58,8 +48,10 @@ exports.getAllPublications = catchAsync(async (req, res, next) => {
  * GET /api/v1/publications/:id — Public: get single publication
  */
 exports.getPublication = catchAsync(async (req, res, next) => {
-  const publication = await Publication.findById(req.params.id)
-    .populate('uploadedBy', 'name');
+  const publication = await prisma.publication.findUnique({
+    where: { id: req.params.id },
+    include: { uploadedBy: { select: { name: true } } }
+  });
 
   if (!publication) {
     return next(new AppError('No publication found with that ID', 404));
@@ -75,7 +67,10 @@ exports.getPublication = catchAsync(async (req, res, next) => {
  * POST /api/v1/publications/:id/download — increment download count
  */
 exports.trackDownload = catchAsync(async (req, res, next) => {
-  await Publication.findByIdAndUpdate(req.params.id, { $inc: { downloadCount: 1 } });
+  await prisma.publication.update({
+    where: { id: req.params.id },
+    data: { downloadCount: { increment: 1 } }
+  });
   res.status(200).json({ status: 'success' });
 });
 
@@ -91,38 +86,42 @@ exports.createPublication = catchAsync(async (req, res, next) => {
     return next(new AppError('Please upload a PDF file', 400));
   }
 
-  // 1) Upload PDF to Cloudinary as 'raw' to avoid 401/processing errors
-  const pdfResult = await uploadToCloudinary(
+  // 1) Upload PDF to Supabase Storage
+  const pdfResult = await uploadFromBuffer(
     req.files.pdf[0].buffer,
     'rte/publications/pdfs',
-    'raw'
+    req.files.pdf[0].mimetype
   );
   const pdfUrl = pdfResult.secure_url;
   const pdfPublicId = pdfResult.public_id;
 
-  // 2) Optionally upload thumbnail to Cloudinary
-  let thumbnailUrl, thumbnailPublicId;
+  // 2) Optionally upload thumbnail to Supabase Storage
+  let thumbnailUrl = null;
+  let thumbnailPublicId = null;
   if (req.files.thumbnail && req.files.thumbnail[0]) {
-    const thumbResult = await uploadToCloudinary(
+    const thumbResult = await uploadFromBuffer(
       req.files.thumbnail[0].buffer,
       'rte/publications/thumbnails',
-      'image'
+      req.files.thumbnail[0].mimetype
     );
     thumbnailUrl = thumbResult.secure_url;
     thumbnailPublicId = thumbResult.public_id;
   }
 
-  const publication = await Publication.create({
-    title,
-    description,
-    pdfUrl,
-    pdfPublicId,
-    thumbnailUrl,
-    thumbnailPublicId,
-    category: category || 'other',
-    tags: tags ? (Array.isArray(tags) ? tags : tags.split(',').map(t => t.trim())) : [],
-    publishedAt: publishedAt || Date.now(),
-    uploadedBy: req.user.id
+  const publication = await prisma.publication.create({
+    data: {
+      title,
+      description,
+      pdfUrl,
+      pdfPublicId,
+      thumbnailUrl,
+      thumbnailPublicId,
+      category: category || 'other',
+      tags: tags ? (Array.isArray(tags) ? tags : tags.split(',').map(t => t.trim())) : [],
+      publishedAt: publishedAt ? new Date(publishedAt) : new Date(),
+      uploadedById: req.user.id
+    },
+    include: { uploadedBy: { select: { name: true } } }
   });
 
   res.status(201).json({
@@ -135,49 +134,54 @@ exports.createPublication = catchAsync(async (req, res, next) => {
  * PATCH /api/v1/publications/:id — Admin: update a publication
  */
 exports.updatePublication = catchAsync(async (req, res, next) => {
-  const publication = await Publication.findById(req.params.id);
-  if (!publication) {
+  const existingPub = await prisma.publication.findUnique({ where: { id: req.params.id } });
+  
+  if (!existingPub) {
     return next(new AppError('No publication found with that ID', 404));
   }
 
   const { title, description, category, tags, publishedAt } = req.body;
+  const updateData = {};
 
-  // Update text fields
-  if (title) publication.title = title;
-  if (description) publication.description = description;
-  if (category) publication.category = category;
-  if (tags) publication.tags = Array.isArray(tags) ? tags : tags.split(',').map(t => t.trim());
-  if (publishedAt) publication.publishedAt = publishedAt;
+  if (title) updateData.title = title;
+  if (description) updateData.description = description;
+  if (category) updateData.category = category;
+  if (tags) updateData.tags = Array.isArray(tags) ? tags : tags.split(',').map(t => t.trim());
+  if (publishedAt) updateData.publishedAt = new Date(publishedAt);
 
   // Replace PDF if provided
   if (req.files && req.files.pdf && req.files.pdf[0]) {
-    if (publication.pdfPublicId) {
-      await cloudinary.uploader.destroy(publication.pdfPublicId, { resource_type: 'raw' }).catch(() => {});
+    if (existingPub.pdfPublicId) {
+      await deleteFromCloudinary(existingPub.pdfPublicId);
     }
-    const pdfResult = await uploadToCloudinary(
+    const pdfResult = await uploadFromBuffer(
       req.files.pdf[0].buffer,
       'rte/publications/pdfs',
-      'raw'
+      req.files.pdf[0].mimetype
     );
-    publication.pdfUrl = pdfResult.secure_url;
-    publication.pdfPublicId = pdfResult.public_id;
+    updateData.pdfUrl = pdfResult.secure_url;
+    updateData.pdfPublicId = pdfResult.public_id;
   }
 
   // Replace thumbnail if provided
   if (req.files && req.files.thumbnail && req.files.thumbnail[0]) {
-    if (publication.thumbnailPublicId) {
-      await cloudinary.uploader.destroy(publication.thumbnailPublicId).catch(() => {});
+    if (existingPub.thumbnailPublicId) {
+      await deleteFromCloudinary(existingPub.thumbnailPublicId);
     }
-    const thumbResult = await uploadToCloudinary(
+    const thumbResult = await uploadFromBuffer(
       req.files.thumbnail[0].buffer,
       'rte/publications/thumbnails',
-      'image'
+      req.files.thumbnail[0].mimetype
     );
-    publication.thumbnailUrl = thumbResult.secure_url;
-    publication.thumbnailPublicId = thumbResult.public_id;
+    updateData.thumbnailUrl = thumbResult.secure_url;
+    updateData.thumbnailPublicId = thumbResult.public_id;
   }
 
-  await publication.save();
+  const publication = await prisma.publication.update({
+    where: { id: req.params.id },
+    data: updateData,
+    include: { uploadedBy: { select: { name: true } } }
+  });
 
   res.status(200).json({
     status: 'success',
@@ -189,22 +193,23 @@ exports.updatePublication = catchAsync(async (req, res, next) => {
  * DELETE /api/v1/publications/:id — Admin: delete a publication
  */
 exports.deletePublication = catchAsync(async (req, res, next) => {
-  const publication = await Publication.findById(req.params.id);
-  if (!publication) {
+  const existingPub = await prisma.publication.findUnique({ where: { id: req.params.id } });
+  
+  if (!existingPub) {
     return next(new AppError('No publication found with that ID', 404));
   }
 
-  // Delete PDF from Cloudinary
-  if (publication.pdfPublicId) {
-    await cloudinary.uploader.destroy(publication.pdfPublicId, { resource_type: 'raw' }).catch(() => {});
+  // Delete PDF from Supabase
+  if (existingPub.pdfPublicId) {
+    await deleteFromCloudinary(existingPub.pdfPublicId);
   }
 
-  // Delete thumbnail from Cloudinary
-  if (publication.thumbnailPublicId) {
-    await cloudinary.uploader.destroy(publication.thumbnailPublicId).catch(() => {});
+  // Delete thumbnail from Supabase
+  if (existingPub.thumbnailPublicId) {
+    await deleteFromCloudinary(existingPub.thumbnailPublicId);
   }
 
-  await Publication.findByIdAndDelete(req.params.id);
+  await prisma.publication.delete({ where: { id: req.params.id } });
 
   res.status(204).json({ status: 'success', data: null });
 });

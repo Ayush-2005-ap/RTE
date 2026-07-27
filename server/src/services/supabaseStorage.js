@@ -1,18 +1,7 @@
-const { createClient } = require('@supabase/supabase-js');
-
-let _supabase = null;
+const supabase = require('../config/supabase');
 
 const getClient = () => {
-  if (!_supabase) {
-    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
-      throw new Error('Supabase credentials are not configured. Set SUPABASE_URL and SUPABASE_SERVICE_KEY in .env');
-    }
-    _supabase = createClient(
-      process.env.SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_KEY  // Use service key for server-side uploads
-    );
-  }
-  return _supabase;
+  return supabase;
 };
 
 const BUCKET_NAME = 'publications';

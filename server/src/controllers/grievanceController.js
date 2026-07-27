@@ -1,7 +1,7 @@
-const Grievance = require('../models/Grievance');
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/AppError');
-const APIFeatures = require('../utils/apiFeatures');
 const uploadService = require('../services/uploadService');
 
 /**
@@ -12,15 +12,15 @@ exports.createGrievance = catchAsync(async (req, res, next) => {
   const { state, category, description, userType } = req.body;
   
   // 2. Handle file uploads if any
-  const attachments = [];
+  const attachmentsData = [];
   if (req.files && req.files.length > 0) {
     const uploadPromises = req.files.map(file => 
-      uploadService.uploadFromBuffer(file.buffer, 'rte-grievances')
+      uploadService.uploadFromBuffer(file.buffer, 'rte-grievances', file.mimetype)
     );
     
     const results = await Promise.all(uploadPromises);
     results.forEach((result, index) => {
-      attachments.push({
+      attachmentsData.push({
         url: result.secure_url,
         publicId: result.public_id,
         filename: req.files[index].originalname
@@ -28,14 +28,23 @@ exports.createGrievance = catchAsync(async (req, res, next) => {
     });
   }
 
+  // Generate unique ref number
+  const refNumber = `RTE-${Math.floor(100000 + Math.random() * 900000)}`;
+
   // 3. Create grievance
-  const grievance = await Grievance.create({
-    author: req.user.id,
-    state,
-    category,
-    description,
-    userType: userType || req.user.userType,
-    attachments
+  const grievance = await prisma.grievance.create({
+    data: {
+      refNumber,
+      authorId: req.user.id,
+      state,
+      category,
+      description,
+      userType: userType || req.user.userType || 'citizen',
+      attachments: {
+        create: attachmentsData
+      }
+    },
+    include: { attachments: true }
   });
 
   res.status(201).json({
@@ -50,19 +59,31 @@ exports.createGrievance = catchAsync(async (req, res, next) => {
  * Get all grievances for current user
  */
 exports.getMyGrievances = catchAsync(async (req, res, next) => {
-  const features = new APIFeatures(Grievance.find({ author: req.user.id }), req.query)
-    .filter()
-    .sort()
-    .limitFields()
-    .paginate();
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const skip = (page - 1) * limit;
 
-  const grievances = await features.query;
+  const filter = { authorId: req.user.id };
+
+  const [grievances, total] = await Promise.all([
+    prisma.grievance.findMany({
+      where: filter,
+      skip,
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+      include: { attachments: true }
+    }),
+    prisma.grievance.count({ where: filter })
+  ]);
 
   res.status(200).json({
     status: 'success',
     results: grievances.length,
     data: {
-      grievances
+      grievances,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
+      total
     }
   });
 });
@@ -71,16 +92,24 @@ exports.getMyGrievances = catchAsync(async (req, res, next) => {
  * Get single grievance details
  */
 exports.getGrievance = catchAsync(async (req, res, next) => {
-  const grievance = await Grievance.findById(req.params.id)
-    .populate('author', 'name email state')
-    .populate('adminNotes.addedBy', 'name role');
+  const grievance = await prisma.grievance.findUnique({
+    where: { id: req.params.id },
+    include: {
+      author: { select: { id: true, name: true, email: true, state: true } },
+      attachments: true,
+      adminNotes: {
+        include: { addedBy: { select: { name: true, role: true } } },
+        orderBy: { addedAt: 'asc' }
+      }
+    }
+  });
 
   if (!grievance) {
     return next(new AppError('No grievance found with that ID', 404));
   }
 
   // Check ownership unless admin/moderator
-  if (grievance.author.id !== req.user.id && !['admin', 'moderator'].includes(req.user.role)) {
+  if (grievance.authorId !== req.user.id && !['admin', 'moderator'].includes(req.user.role)) {
     return next(new AppError('You do not have permission to view this grievance', 403));
   }
 
@@ -98,22 +127,33 @@ exports.getGrievance = catchAsync(async (req, res, next) => {
 exports.updateGrievanceStatus = catchAsync(async (req, res, next) => {
   const { status, note } = req.body;
 
-  const grievance = await Grievance.findById(req.params.id);
+  const existing = await prisma.grievance.findUnique({ where: { id: req.params.id } });
 
-  if (!grievance) {
+  if (!existing) {
     return next(new AppError('No grievance found with that ID', 404));
   }
 
-  if (status) grievance.status = status;
-  
+  const updateData = {};
+  if (status) updateData.status = status;
+
   if (note) {
-    grievance.adminNotes.push({
-      note,
-      addedBy: req.user.id
-    });
+    updateData.adminNotes = {
+      create: {
+        note,
+        addedById: req.user.id
+      }
+    };
   }
 
-  await grievance.save();
+  const grievance = await prisma.grievance.update({
+    where: { id: req.params.id },
+    data: updateData,
+    include: {
+      adminNotes: {
+        include: { addedBy: { select: { name: true, role: true } } }
+      }
+    }
+  });
 
   res.status(200).json({
     status: 'success',
@@ -127,20 +167,32 @@ exports.updateGrievanceStatus = catchAsync(async (req, res, next) => {
  * Get all grievances (Admin only)
  */
 exports.getAllGrievances = catchAsync(async (req, res, next) => {
-  const query = Grievance.find().populate('author', 'name email');
-  const features = new APIFeatures(query, req.query)
-    .filter()
-    .sort()
-    .limitFields()
-    .paginate();
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 20;
+  const skip = (page - 1) * limit;
 
-  const grievances = await features.query;
+  const filter = {};
+  if (req.query.status) filter.status = req.query.status;
+
+  const [grievances, total] = await Promise.all([
+    prisma.grievance.findMany({
+      where: filter,
+      skip,
+      take: limit,
+      orderBy: { createdAt: 'desc' },
+      include: { author: { select: { name: true, email: true } } }
+    }),
+    prisma.grievance.count({ where: filter })
+  ]);
 
   res.status(200).json({
     status: 'success',
     results: grievances.length,
     data: {
-      grievances
+      grievances,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
+      total
     }
   });
 });

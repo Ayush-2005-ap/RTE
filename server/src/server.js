@@ -9,14 +9,7 @@ process.on('uncaughtException', err => {
   process.exit(1);
 });
 
-
 const app = require('./app');
-const connectDB = require('./config/db');
-
-console.log('Connecting to database...');
-// Connect to database
-connectDB();
-console.log('Database connected successfully!');
 
 const port = process.env.PORT || 5050;
 const server = app.listen(port, () => {

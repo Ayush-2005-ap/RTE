@@ -1,9 +1,5 @@
-const User = require('../models/User');
-const Question = require('../models/Question');
-const News = require('../models/News');
-const BlogPost = require('../models/BlogPost');
-const Publication = require('../models/Publication');
-const Comment = require('../models/Comment');
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 const catchAsync = require('../utils/catchAsync');
 
 /**
@@ -28,20 +24,54 @@ exports.getAdminStats = catchAsync(async (req, res, next) => {
     recentQuestions,
     recentComments
   ] = await Promise.all([
-    User.countDocuments(),
-    User.countDocuments({ role: { $in: ['admin', 'moderator'] } }),
-    Question.countDocuments(),
-    News.countDocuments(),
-    BlogPost.countDocuments({ status: 'published' }),
-    Publication.countDocuments(),
-    Comment.countDocuments(),
-    User.countDocuments({ createdAt: { $gte: oneWeekAgo } }),
-    Question.countDocuments({ createdAt: { $gte: oneWeekAgo } }),
-    News.countDocuments({ createdAt: { $gte: oneWeekAgo } }),
-    BlogPost.countDocuments({ createdAt: { $gte: oneWeekAgo } }),
-    Question.find().sort('-createdAt').limit(5).select('title authorName status createdAt'),
-    Comment.find().sort('-createdAt').limit(5).select('contentType authorName body createdAt')
+    prisma.user.count(),
+    prisma.user.count({ where: { role: { in: ['admin', 'moderator'] } } }),
+    prisma.question.count(),
+    prisma.news.count(),
+    prisma.blogPost.count({ where: { status: 'published' } }),
+    prisma.publication.count(),
+    prisma.comment.count(),
+    
+    prisma.user.count({ where: { createdAt: { gte: oneWeekAgo } } }),
+    prisma.question.count({ where: { createdAt: { gte: oneWeekAgo } } }),
+    prisma.news.count({ where: { createdAt: { gte: oneWeekAgo } } }),
+    prisma.blogPost.count({ where: { createdAt: { gte: oneWeekAgo } } }),
+    
+    prisma.question.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+      select: {
+        title: true,
+        status: true,
+        createdAt: true,
+        author: { select: { name: true } }
+      }
+    }),
+    prisma.comment.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+      select: {
+        body: true,
+        createdAt: true,
+        author: { select: { name: true } }
+      }
+    })
   ]);
+
+  // Format recent questions and comments to match the previous Mongoose response structure if possible
+  const formattedRecentQuestions = recentQuestions.map(q => ({
+    title: q.title,
+    status: q.status,
+    createdAt: q.createdAt,
+    authorName: q.author ? q.author.name : 'Unknown'
+  }));
+
+  const formattedRecentComments = recentComments.map(c => ({
+    body: c.body,
+    createdAt: c.createdAt,
+    authorName: c.author ? c.author.name : 'Unknown',
+    contentType: 'Discussion' // Since comments are linked generically, default to Discussion or similar
+  }));
 
   res.status(200).json({
     status: 'success',
@@ -62,8 +92,8 @@ exports.getAdminStats = catchAsync(async (req, res, next) => {
         blogsThisWeek
       },
       recentActivity: {
-        questions: recentQuestions,
-        comments: recentComments
+        questions: formattedRecentQuestions,
+        comments: formattedRecentComments
       }
     }
   });

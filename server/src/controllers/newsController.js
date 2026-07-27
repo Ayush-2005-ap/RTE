@@ -1,22 +1,8 @@
-const News = require('../models/News');
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/AppError');
-const cloudinary = require('../config/cloudinary');
-const streamifier = require('streamifier');
-
-// Helper: Upload image buffer to Cloudinary
-const uploadImageToCloudinary = (buffer, folder) => {
-  return new Promise((resolve, reject) => {
-    const uploadStream = cloudinary.uploader.upload_stream(
-      { folder, resource_type: 'image' },
-      (error, result) => {
-        if (error) reject(error);
-        else resolve(result);
-      }
-    );
-    streamifier.createReadStream(buffer).pipe(uploadStream);
-  });
-};
+const { uploadFromBuffer, deleteFromCloudinary } = require('../services/uploadService');
 
 /**
  * GET /api/v1/news — Public: list news with pagination & filters
@@ -29,28 +15,32 @@ exports.getAllNews = catchAsync(async (req, res, next) => {
   if (req.query.state) filter.state = req.query.state;
   if (req.query.category) filter.category = req.query.category;
   if (req.query.search) {
-    filter.$or = [
-      { title: { $regex: req.query.search, $options: 'i' } },
-      { summary: { $regex: req.query.search, $options: 'i' } }
+    filter.OR = [
+      { title: { contains: req.query.search, mode: 'insensitive' } },
+      { summary: { contains: req.query.search, mode: 'insensitive' } }
     ];
   }
 
-  const options = {
-    page,
-    limit,
-    sort: { publishedAt: -1 },
-    populate: { path: 'addedBy', select: 'name' }
-  };
+  const skip = (page - 1) * limit;
 
-  const result = await News.paginate(filter, options);
+  const [news, total] = await Promise.all([
+    prisma.news.findMany({
+      where: filter,
+      skip,
+      take: limit,
+      orderBy: { publishedAt: 'desc' },
+      include: { addedBy: { select: { name: true } } }
+    }),
+    prisma.news.count({ where: filter })
+  ]);
 
   res.status(200).json({
     status: 'success',
     data: {
-      news: result.docs,
-      totalPages: result.totalPages,
-      currentPage: result.page,
-      total: result.totalDocs
+      news,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
+      total
     }
   });
 });
@@ -59,7 +49,11 @@ exports.getAllNews = catchAsync(async (req, res, next) => {
  * GET /api/v1/news/:id — Public: get single news item
  */
 exports.getNews = catchAsync(async (req, res, next) => {
-  const news = await News.findById(req.params.id).populate('addedBy', 'name');
+  const news = await prisma.news.findUnique({
+    where: { id: req.params.id },
+    include: { addedBy: { select: { name: true } } }
+  });
+
   if (!news) {
     return next(new AppError('No news item found with that ID', 404));
   }
@@ -76,25 +70,30 @@ exports.getNews = catchAsync(async (req, res, next) => {
 exports.createNews = catchAsync(async (req, res, next) => {
   const { title, summary, body, source, sourceUrl, state, category, publishedAt } = req.body;
 
-  let imageUrl, imagePublicId;
+  let imageUrl = null;
+  let imagePublicId = null;
+
   if (req.file) {
-    const result = await uploadImageToCloudinary(req.file.buffer, 'rte/news');
+    const result = await uploadFromBuffer(req.file.buffer, 'rte/news');
     imageUrl = result.secure_url;
     imagePublicId = result.public_id;
   }
 
-  const news = await News.create({
-    title,
-    summary,
-    body,
-    source,
-    sourceUrl,
-    imageUrl,
-    imagePublicId,
-    state: state || 'All India',
-    category: category || 'other',
-    publishedAt: publishedAt || Date.now(),
-    addedBy: req.user.id
+  const news = await prisma.news.create({
+    data: {
+      title,
+      summary,
+      body,
+      source,
+      sourceUrl,
+      imageUrl,
+      imagePublicId,
+      state: state || 'All India',
+      category: category || 'other',
+      publishedAt: publishedAt ? new Date(publishedAt) : new Date(),
+      addedById: req.user.id
+    },
+    include: { addedBy: { select: { name: true } } }
   });
 
   res.status(201).json({
@@ -107,32 +106,38 @@ exports.createNews = catchAsync(async (req, res, next) => {
  * PATCH /api/v1/news/:id — Admin: update a news item
  */
 exports.updateNews = catchAsync(async (req, res, next) => {
-  const news = await News.findById(req.params.id);
-  if (!news) {
+  const existingNews = await prisma.news.findUnique({ where: { id: req.params.id } });
+  
+  if (!existingNews) {
     return next(new AppError('No news item found with that ID', 404));
   }
 
   const { title, summary, body, source, sourceUrl, state, category, publishedAt } = req.body;
+  const updateData = {};
 
-  if (title !== undefined) news.title = title;
-  if (summary !== undefined) news.summary = summary;
-  if (body !== undefined) news.body = body;
-  if (source !== undefined) news.source = source;
-  if (sourceUrl !== undefined) news.sourceUrl = sourceUrl;
-  if (state !== undefined) news.state = state;
-  if (category !== undefined) news.category = category;
-  if (publishedAt !== undefined) news.publishedAt = publishedAt;
+  if (title !== undefined) updateData.title = title;
+  if (summary !== undefined) updateData.summary = summary;
+  if (body !== undefined) updateData.body = body;
+  if (source !== undefined) updateData.source = source;
+  if (sourceUrl !== undefined) updateData.sourceUrl = sourceUrl;
+  if (state !== undefined) updateData.state = state;
+  if (category !== undefined) updateData.category = category;
+  if (publishedAt !== undefined) updateData.publishedAt = new Date(publishedAt);
 
   if (req.file) {
-    if (news.imagePublicId) {
-      await cloudinary.uploader.destroy(news.imagePublicId);
+    if (existingNews.imagePublicId) {
+      await deleteFromCloudinary(existingNews.imagePublicId);
     }
-    const result = await uploadImageToCloudinary(req.file.buffer, 'rte/news');
-    news.imageUrl = result.secure_url;
-    news.imagePublicId = result.public_id;
+    const result = await uploadFromBuffer(req.file.buffer, 'rte/news');
+    updateData.imageUrl = result.secure_url;
+    updateData.imagePublicId = result.public_id;
   }
 
-  await news.save();
+  const news = await prisma.news.update({
+    where: { id: req.params.id },
+    data: updateData,
+    include: { addedBy: { select: { name: true } } }
+  });
 
   res.status(200).json({
     status: 'success',
@@ -144,16 +149,17 @@ exports.updateNews = catchAsync(async (req, res, next) => {
  * DELETE /api/v1/news/:id — Admin: delete a news item
  */
 exports.deleteNews = catchAsync(async (req, res, next) => {
-  const news = await News.findById(req.params.id);
-  if (!news) {
+  const existingNews = await prisma.news.findUnique({ where: { id: req.params.id } });
+  
+  if (!existingNews) {
     return next(new AppError('No news item found with that ID', 404));
   }
 
-  if (news.imagePublicId) {
-    await cloudinary.uploader.destroy(news.imagePublicId);
+  if (existingNews.imagePublicId) {
+    await deleteFromCloudinary(existingNews.imagePublicId);
   }
 
-  await News.findByIdAndDelete(req.params.id);
+  await prisma.news.delete({ where: { id: req.params.id } });
 
   res.status(204).json({ status: 'success', data: null });
 });

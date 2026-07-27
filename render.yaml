@@ -1,0 +1,34 @@
+services:
+  # --- BACKEND API ---
+  - type: web
+    name: rte-api
+    env: node
+    region: singapore
+    rootDir: server
+    buildCommand: npm install && npx prisma generate
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5050
+      - key: CLIENT_URL
+        fromService:
+          type: web
+          name: rte-client
+          envVarKey: RENDER_EXTERNAL_URL
+
+  # --- FRONTEND APP ---
+  - type: web
+    name: rte-client
+    env: static
+    region: singapore
+    rootDir: client
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: rte-api
+          envVarKey: RENDER_EXTERNAL_URL

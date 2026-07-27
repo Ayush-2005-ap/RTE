@@ -1,6 +1,5 @@
-const Comment = require('../models/Comment');
-const News = require('../models/News');
-const BlogPost = require('../models/BlogPost');
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/AppError');
 
@@ -20,19 +19,27 @@ exports.getComments = catchAsync(async (req, res, next) => {
 
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 20;
+  const skip = (page - 1) * limit;
 
-  const result = await Comment.paginate(
-    { contentType: type, contentId: id, isApproved: true },
-    { page, limit, sort: { createdAt: -1 } }
-  );
+  const filter = { contentType: type, contentId: id, isApproved: true };
+
+  const [comments, total] = await Promise.all([
+    prisma.comment.findMany({
+      where: filter,
+      skip,
+      take: limit,
+      orderBy: { createdAt: 'desc' }
+    }),
+    prisma.comment.count({ where: filter })
+  ]);
 
   res.status(200).json({
     status: 'success',
     data: {
-      comments: result.docs,
-      totalPages: result.totalPages,
-      currentPage: result.page,
-      total: result.totalDocs
+      comments,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
+      total
     }
   });
 });
@@ -43,23 +50,28 @@ exports.getComments = catchAsync(async (req, res, next) => {
 exports.getAllCommentsAdmin = catchAsync(async (req, res, next) => {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 30;
+  const skip = (page - 1) * limit;
 
   const filter = {};
   if (req.query.type) filter.contentType = req.query.type;
 
-  const result = await Comment.paginate(filter, {
-    page,
-    limit,
-    sort: { createdAt: -1 }
-  });
+  const [comments, total] = await Promise.all([
+    prisma.comment.findMany({
+      where: filter,
+      skip,
+      take: limit,
+      orderBy: { createdAt: 'desc' }
+    }),
+    prisma.comment.count({ where: filter })
+  ]);
 
   res.status(200).json({
     status: 'success',
     data: {
-      comments: result.docs,
-      totalPages: result.totalPages,
-      currentPage: result.page,
-      total: result.totalDocs
+      comments,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
+      total
     }
   });
 });
@@ -76,20 +88,30 @@ exports.createComment = catchAsync(async (req, res, next) => {
 
   // Verify the content exists
   if (contentType === 'blog') {
-    const post = await BlogPost.findById(contentId);
+    const post = await prisma.blogPost.findUnique({ where: { id: contentId } });
     if (!post) return next(new AppError('Blog post not found', 404));
-    await BlogPost.findByIdAndUpdate(contentId, { $inc: { commentCount: 1 } });
+    
+    await prisma.blogPost.update({
+      where: { id: contentId },
+      data: { commentCount: { increment: 1 } }
+    });
   } else {
-    const news = await News.findById(contentId);
+    const news = await prisma.news.findUnique({ where: { id: contentId } });
     if (!news) return next(new AppError('News item not found', 404));
-    await News.findByIdAndUpdate(contentId, { $inc: { commentCount: 1 } });
+    
+    await prisma.news.update({
+      where: { id: contentId },
+      data: { commentCount: { increment: 1 } }
+    });
   }
 
-  const comment = await Comment.create({
-    contentType,
-    contentId,
-    authorName: authorName || 'Anonymous',
-    body
+  const comment = await prisma.comment.create({
+    data: {
+      contentType,
+      contentId,
+      authorName: authorName || 'Anonymous',
+      body
+    }
   });
 
   res.status(201).json({
@@ -102,23 +124,26 @@ exports.createComment = catchAsync(async (req, res, next) => {
  * DELETE /api/v1/comments/:id — Admin: delete a comment
  */
 exports.deleteComment = catchAsync(async (req, res, next) => {
-  const comment = await Comment.findById(req.params.id);
+  const comment = await prisma.comment.findUnique({ where: { id: req.params.id } });
+  
   if (!comment) {
     return next(new AppError('No comment found with that ID', 404));
   }
 
   // Decrement count on parent content
   if (comment.contentType === 'blog') {
-    await BlogPost.findByIdAndUpdate(comment.contentId, {
-      $inc: { commentCount: -1 }
-    });
+    await prisma.blogPost.update({
+      where: { id: comment.contentId },
+      data: { commentCount: { decrement: 1 } }
+    }).catch(() => {});
   } else {
-    await News.findByIdAndUpdate(comment.contentId, {
-      $inc: { commentCount: -1 }
-    });
+    await prisma.news.update({
+      where: { id: comment.contentId },
+      data: { commentCount: { decrement: 1 } }
+    }).catch(() => {});
   }
 
-  await Comment.findByIdAndDelete(req.params.id);
+  await prisma.comment.delete({ where: { id: req.params.id } });
 
   res.status(204).json({ status: 'success', data: null });
 });

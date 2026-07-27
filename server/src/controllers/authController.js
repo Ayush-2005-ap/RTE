@@ -1,43 +1,26 @@
-const bcrypt = require('bcryptjs');
-const User = require('../models/User');
 const catchAsync = require('../utils/catchAsync');
 const AppError = require('../utils/AppError');
-const {
-  generateAccessToken,
-  generateRefreshToken,
-  generateHashToken,
-  hashToken
-} = require('../utils/tokenUtils');
+const supabase = require('../config/supabase');
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 
-const signSendTokens = async (user, statusCode, res) => {
-  const accessToken = generateAccessToken(user._id, user.role);
-  const refreshToken = generateRefreshToken(user._id);
-
-  // Hash refresh token to store in DB
-  const refreshTokenHash = await bcrypt.hash(refreshToken, 12);
-  user.refreshTokenHash = refreshTokenHash;
-  await user.save({ validateBeforeSave: false });
+const signSendTokens = async (session, user, statusCode, res) => {
+  const { access_token, refresh_token } = session;
 
   const cookieOptions = {
-    expires: new Date(
-      Date.now() + 7 * 24 * 60 * 60 * 1000 // 7 days
-    ),
+    expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'Strict'
   };
 
-  res.cookie('refreshToken', refreshToken, cookieOptions);
-
-  // Remove password and other sensitive fields from output
-  user.passwordHash = undefined;
-  user.refreshTokenHash = undefined;
+  res.cookie('refreshToken', refresh_token, cookieOptions);
 
   res.status(statusCode).json({
     status: 'success',
     data: {
       user,
-      accessToken
+      accessToken: access_token
     }
   });
 };
@@ -45,92 +28,90 @@ const signSendTokens = async (user, statusCode, res) => {
 exports.register = catchAsync(async (req, res, next) => {
   const { name, email, password, state, userType } = req.body;
 
-  // 1) Hash password
-  const passwordHash = await bcrypt.hash(password, 12);
-
-  const verifyTokenRaw = generateHashToken();
-  const verifyToken = hashToken(verifyTokenRaw);
-
-  const newUser = await User.create({
-    name,
+  // 1) Sign up with Supabase Auth
+  const { data: authData, error: authError } = await supabase.auth.signUp({
     email,
-    passwordHash,
-    state,
-    userType,
-    isVerified: true, // Auto-verify for testing
-    verifyToken,
-    verifyTokenExpiry: Date.now() + 24 * 60 * 60 * 1000 // 24 hours
+    password,
   });
 
-  // TODO: Send verification email with verifyTokenRaw
+  if (authError) {
+    return next(new AppError(authError.message, 400));
+  }
 
-  newUser.passwordHash = undefined;
+  // 2) Create user in our DB using the Supabase UUID
+  let newUser;
+  try {
+    newUser = await prisma.user.create({
+      data: {
+        id: authData.user.id,
+        name,
+        email,
+        state,
+        userType,
+        isVerified: true, // Assuming auto-verify for testing
+      }
+    });
+  } catch (err) {
+    // If Prisma fails, delete the Supabase user to maintain consistency
+    await supabase.auth.admin.deleteUser(authData.user.id);
+    return next(new AppError('Failed to create user record. Email might already exist.', 400));
+  }
 
   res.status(201).json({
     status: 'success',
     data: {
       user: newUser,
-      message: 'Registration successful! Please check your email to verify your account.'
+      message: 'Registration successful!'
     }
   });
 });
 
 exports.verifyEmail = catchAsync(async (req, res, next) => {
-  const hashedToken = hashToken(req.params.token);
-
-  const user = await User.findOne({
-    verifyToken: hashedToken,
-    verifyTokenExpiry: { $gt: Date.now() }
-  }).select('+verifyToken +verifyTokenExpiry');
-
-  if (!user) {
-    return next(new AppError('Token is invalid or has expired', 400));
-  }
-
-  user.isVerified = true;
-  user.verifyToken = undefined;
-  user.verifyTokenExpiry = undefined;
-  await user.save({ validateBeforeSave: false });
-
   res.status(200).json({
     status: 'success',
-    message: 'Email verified successfully! You can now log in.'
+    message: 'Email verification is handled by Supabase.'
   });
 });
 
 exports.login = catchAsync(async (req, res, next) => {
   const { email, password } = req.body;
 
-  // 1) Check if email and password exist
   if (!email || !password) {
     return next(new AppError('Please provide email and password!', 400));
   }
 
-  // 2) Check if user exists && password is correct
-  const user = await User.findOne({ email }).select('+passwordHash +role +isVerified');
+  // 1) Sign in with Supabase
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
 
-  if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
+  if (error || !data.session) {
     return next(new AppError('Incorrect email or password', 401));
   }
 
-  // 3) Check if user is verified
-  if (!user.isVerified) {
-    return next(new AppError('Please verify your email address first!', 403));
+  // 2) Get user from Prisma
+  const user = await prisma.user.findUnique({
+    where: { id: data.user.id }
+  });
+
+  if (!user) {
+    return next(new AppError('User record not found in database', 404));
   }
 
-  // 4) If everything ok, send token to client
-  await signSendTokens(user, 200, res);
+  // 3) Send tokens
+  await signSendTokens(data.session, user, 200, res);
 });
 
 exports.logout = catchAsync(async (req, res, next) => {
-  const { refreshToken } = req.cookies;
-  
-  if (refreshToken) {
-    const user = await User.findOne({ refreshTokenHash: { $exists: true } }); // This is simplified
-    if (user) {
-      user.refreshTokenHash = undefined;
-      await user.save({ validateBeforeSave: false });
-    }
+  let token;
+  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+    token = req.headers.authorization.split(' ')[1];
+  }
+
+  if (token) {
+    // We use the admin api to sign out a specific JWT if needed, or just rely on client-side cleanup
+    await supabase.auth.admin.signOut(token).catch(() => {});
   }
 
   res.clearCookie('refreshToken');
@@ -144,81 +125,57 @@ exports.refresh = catchAsync(async (req, res, next) => {
     return next(new AppError('Not authenticated', 401));
   }
 
-  // TODO: Implement refresh token rotation logic properly
-  // Find user by refresh token (hashed)
-  // ...
-  
-  res.status(200).json({ status: 'success', message: 'Token refreshed' });
+  const { data, error } = await supabase.auth.refreshSession({ refresh_token: refreshToken });
+
+  if (error || !data.session) {
+    return next(new AppError('Invalid refresh token', 401));
+  }
+
+  res.status(200).json({ 
+    status: 'success', 
+    accessToken: data.session.access_token 
+  });
 });
 
 exports.forgotPassword = catchAsync(async (req, res, next) => {
-  // 1) Get user based on POSTed email
-  const user = await User.findOne({ email: req.body.email });
-  if (!user) {
-    return next(new AppError('There is no user with email address.', 404));
+  const { email } = req.body;
+
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: process.env.CLIENT_URL + '/reset-password',
+  });
+
+  if (error) {
+    return next(new AppError(error.message, 400));
   }
 
-  // 2) Generate the random reset token
-  const resetTokenRaw = generateHashToken();
-  const resetToken = hashToken(resetTokenRaw);
-
-  user.resetToken = resetToken;
-  user.resetTokenExpiry = Date.now() + 10 * 60 * 1000; // 10 minutes
-  await user.save({ validateBeforeSave: false });
-
-  // 3) Send it to user's email
-  // TODO: Send email
-  
   res.status(200).json({
     status: 'success',
-    message: 'Token sent to email!'
+    message: 'Password reset link sent to email!'
   });
 });
 
 exports.resetPassword = catchAsync(async (req, res, next) => {
-  // 1) Get user based on the token
-  const hashedToken = hashToken(req.params.token);
-
-  const user = await User.findOne({
-    resetToken: hashedToken,
-    resetTokenExpiry: { $gt: Date.now() }
-  }).select('+passwordHash');
-
-  // 2) If token has not expired, and there is user, set the new password
-  if (!user) {
-    return next(new AppError('Token is invalid or has expired', 400));
-  }
-  
-  user.passwordHash = await bcrypt.hash(req.body.password, 12);
-  user.resetToken = undefined;
-  user.resetTokenExpiry = undefined;
-  user.refreshTokenHash = undefined; // Invalidate all refresh tokens
-  await user.save();
-
-  // 3) Log the user in, send JWT
-  await signSendTokens(user, 200, res);
+  res.status(400).json({
+    status: 'fail',
+    message: 'Please implement password reset directly on the frontend using Supabase client.'
+  });
 });
 
-/**
- * Update password (Logged-in users)
- */
 exports.updatePassword = catchAsync(async (req, res, next) => {
-  const { currentPassword, newPassword } = req.body;
-
-  // 1) Get user from collection
-  const user = await User.findById(req.user.id).select('+passwordHash');
-
-  // 2) Check if POSTed current password is correct
-  if (!(await bcrypt.compare(currentPassword, user.passwordHash))) {
-    return next(new AppError('Your current password is wrong', 401));
+  const { newPassword } = req.body;
+  
+  if (!req.user) {
+    return next(new AppError('Not authenticated', 401));
   }
 
-  // 3) Update password
-  user.passwordHash = await bcrypt.hash(newPassword, 12);
-  user.refreshTokenHash = undefined; // logout from other devices
-  await user.save();
+  const { error: updateError } = await supabase.auth.admin.updateUserById(req.user.id, { password: newPassword });
 
-  // 4) Log user in (send new JWT)
-  await signSendTokens(user, 200, res);
+  if (updateError) {
+    return next(new AppError(updateError.message, 400));
+  }
+
+  res.status(200).json({
+    status: 'success',
+    message: 'Password updated successfully'
+  });
 });
-
