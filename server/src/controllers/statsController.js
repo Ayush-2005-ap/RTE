@@ -44,7 +44,7 @@ exports.getAdminStats = catchAsync(async (req, res, next) => {
         title: true,
         status: true,
         createdAt: true,
-        author: { select: { name: true } }
+        authorName: true
       }
     }),
     prisma.comment.findMany({
@@ -53,7 +53,7 @@ exports.getAdminStats = catchAsync(async (req, res, next) => {
       select: {
         body: true,
         createdAt: true,
-        author: { select: { name: true } }
+        authorName: true
       }
     })
   ]);
@@ -63,13 +63,13 @@ exports.getAdminStats = catchAsync(async (req, res, next) => {
     title: q.title,
     status: q.status,
     createdAt: q.createdAt,
-    authorName: q.author ? q.author.name : 'Unknown'
+    authorName: q.authorName || 'Unknown'
   }));
 
   const formattedRecentComments = recentComments.map(c => ({
     body: c.body,
     createdAt: c.createdAt,
-    authorName: c.author ? c.author.name : 'Unknown',
+    authorName: c.authorName || 'Unknown',
     contentType: 'Discussion' // Since comments are linked generically, default to Discussion or similar
   }));
 
